@@ -43,7 +43,6 @@
         .bg-bri-card {
             background: linear-gradient(135deg, #0066C8 0%, #003B80 100%);
         }
-        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -55,7 +54,6 @@
             background: rgba(0,82,156,0.3);
             border-radius: 10px;
         }
-        /* Animasi Transisi Elegan Antar Halaman */
         .page-section {
             animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
@@ -69,7 +67,6 @@
                 transform: translateY(0);
             }
         }
-        /* Efek Interaktif Hover pada Kartu */
         .interactive-card {
             transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
@@ -108,7 +105,10 @@
                     <i class="fa-solid fa-arrow-right text-xs"></i>
                 </button>
             </form>
-            <p class="text-center text-[11px] text-gray-400 mt-6">Akses Khusus Bendahara • Realtime Cloud Sync</p>
+            <div class="text-center mt-6 flex justify-between items-center text-[11px] text-gray-400">
+                <span>Akses Khusus Bendahara</span>
+                <button onclick="clearSystemCache()" class="text-blue-300 hover:underline">Reset Cache Login</button>
+            </div>
         </div>
     </div>
 
@@ -125,7 +125,7 @@
                     <div>
                         <div class="flex items-center space-x-1.5">
                             <p class="text-[11px] text-blue-200 font-medium">Admin,</p>
-                            <span id="cloudStatus" class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse" title="Tersambung ke Cloud Database"></span>
+                            <span id="cloudStatus" class="inline-block w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse" title="Tersambung ke Cloud Database"></span>
                         </div>
                         <h1 class="font-bold text-sm md:text-base leading-tight" id="userDisplayName">Bendahara DCC</h1>
                     </div>
@@ -149,7 +149,6 @@
                     <div class="truncate">
                         <span class="text-[10px] text-blue-200 font-medium block leading-none">AKUN KEUANGAN AKTIF</span>
                         <select id="accountSelect" onchange="switchAccount(this.value)" class="bg-transparent font-extrabold text-sm text-white focus:outline-none cursor-pointer">
-                            <!-- Dynamic Accounts -->
                         </select>
                     </div>
                 </div>
@@ -260,7 +259,6 @@
                         <span class="text-[10px] bg-blue-50 dark:bg-gray-700 text-bri-blue dark:text-blue-300 font-semibold px-2 py-0.5 rounded-full">Akun Aktif</span>
                     </div>
                     <div id="recentTransactions" class="space-y-2.5">
-                        <!-- Dynamic Recent List -->
                     </div>
                 </div>
             </section>
@@ -411,7 +409,7 @@
                 </div>
             </section>
 
-            <!-- 4. REKAPAN ANALYTICS -->
+            <!-- 4. REKAPAN -->
             <section id="page-rekapan" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
@@ -704,20 +702,24 @@
 
     </div>
 
-    <!-- JAVASCRIPT LOGIC DENGAN KREDENSIAL SUPABASE BARU & UNSINKRONISASI REALTIME -->
+    <!-- JAVASCRIPT LOGIC DENGAN REALTIME SYNC DARI SUPABASE -->
     <script>
-        // KREDENSIAL SUPABASE
         const SUPABASE_URL = "https://rsxleuqxlqlszsihbrew.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzeGxldXF4bHFsc3pzaWhicmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTI1ODQsImV4cCI6MjE0NzQ4MzY0N30.p13W3tOoA6bhlGAY1gB-CtvXz2v1PM8YqNX5HiiSYG0";
         
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let _supabase = null;
+        try {
+            _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch(e) {
+            console.error("Inisialisasi client Supabase gagal:", e);
+        }
 
         const DEFAULT_ACCOUNTS = ["Lantai 1", "Lantai 2"];
         const AUTH_PASSWORD = "dcc2026";
 
         let state = {
             currentAccount: "Lantai 1",
-            accounts: [],
+            accounts: [...DEFAULT_ACCOUNTS],
             transactions: [],
             assets: [],
             inOptions: {
@@ -733,7 +735,7 @@
 
         let chartInstance = null;
 
-        window.onload = async function() {
+        window.onload = function() {
             loadLocalOptions();
             const today = new Date().toISOString().split('T')[0];
             if(document.getElementById('inDate')) document.getElementById('inDate').value = today;
@@ -741,11 +743,18 @@
             if(document.getElementById('assetDate')) document.getElementById('assetDate').value = today;
 
             if(localStorage.getItem('brimo_logged_in') === 'true') {
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
-                await initApp();
+                showMainAppUI();
+                initApp();
             }
         };
+
+        function showMainAppUI() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            renderAccountSelector();
+            renderDropdownOptions();
+            refreshCurrentPage();
+        }
 
         function loadLocalOptions() {
             const savedInOpt = localStorage.getItem('brimo_in_options');
@@ -756,6 +765,7 @@
         }
 
         async function initApp() {
+            if (!_supabase) return;
             await fetchAllFromSupabase();
             setupRealtimeSync();
             renderAccountSelector();
@@ -764,16 +774,16 @@
         }
 
         async function fetchAllFromSupabase() {
+            if(!_supabase) return;
+            const statusElem = document.getElementById('cloudStatus');
             try {
-                const { data: accData } = await _supabase.from('accounts').select('*');
-                if (accData && accData.length > 0) {
+                const { data: accData, error: accErr } = await _supabase.from('accounts').select('*');
+                if (!accErr && accData && accData.length > 0) {
                     state.accounts = accData.map(a => a.name);
-                } else {
-                    state.accounts = [...DEFAULT_ACCOUNTS];
                 }
 
-                const { data: txData } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
-                if (txData) {
+                const { data: txData, error: txErr } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
+                if (!txErr && txData) {
                     state.transactions = txData.map(t => ({
                         id: t.id,
                         account: t.account,
@@ -787,8 +797,8 @@
                     }));
                 }
 
-                const { data: assetData } = await _supabase.from('assets').select('*').order('id', { ascending: true });
-                if (assetData) {
+                const { data: assetData, error: assetErr } = await _supabase.from('assets').select('*').order('id', { ascending: true });
+                if (!assetErr && assetData) {
                     state.assets = assetData.map(a => ({
                         id: a.id,
                         account: a.account,
@@ -799,12 +809,22 @@
                         price: Number(a.price)
                     }));
                 }
+
+                if(statusElem) {
+                    statusElem.className = "inline-block w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse";
+                    statusElem.title = "Tersambung ke Cloud Database";
+                }
             } catch (err) {
-                console.error("Gagal mengambil data dari Supabase:", err);
+                console.warn("Koneksi Supabase Terbatas:", err);
+                if(statusElem) {
+                    statusElem.className = "inline-block w-2.5 h-2.5 bg-amber-400 rounded-full";
+                    statusElem.title = "Mode Offline Aktif";
+                }
             }
         }
 
         function setupRealtimeSync() {
+            if(!_supabase) return;
             _supabase
                 .channel('public-db-changes')
                 .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
@@ -815,7 +835,7 @@
                 .subscribe();
         }
 
-        async function handleLogin(e) {
+        function handleLogin(e) {
             e.preventDefault();
             const inputPass = document.getElementById('password').value;
             const errorElement = document.getElementById('loginError');
@@ -824,21 +844,16 @@
                 if (errorElement) errorElement.classList.add('hidden');
                 localStorage.setItem('brimo_logged_in', 'true');
                 
-                // LANGSUNG MASUK BERANDA LOKAL DAHULU AGAR TIDAK ANJLOK
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
-
-                try {
-                    await initApp();
-                } catch (err) {
-                    console.error("Inisialisasi cloud gagal, beralih ke mode lokal:", err);
-                    renderAccountSelector();
-                    renderDropdownOptions();
-                    refreshCurrentPage();
-                }
+                showMainAppUI();
+                initApp();
             } else {
                 if (errorElement) errorElement.classList.remove('hidden');
             }
+        }
+
+        function clearSystemCache() {
+            localStorage.removeItem('brimo_logged_in');
+            location.reload();
         }
 
         function handleLogout() {
@@ -895,7 +910,7 @@
             const input = document.getElementById('newAccountName');
             const name = input.value.trim();
             if (name && !state.accounts.includes(name)) {
-                await _supabase.from('accounts').insert([{ name }]);
+                if(_supabase) await _supabase.from('accounts').insert([{ name }]);
                 state.accounts.push(name);
                 state.currentAccount = name;
                 renderAccountSelector();
@@ -1022,25 +1037,26 @@
             const cashType = document.getElementById(`${prefix}CashType`).value;
             const amount = parseFloat(document.getElementById(`${prefix}Amount`).value);
 
-            const { data, error } = await _supabase.from('transactions').insert([{
-                account: state.currentAccount,
-                type: type,
-                date: date,
-                description: desc,
-                qty: qty,
-                category: category,
-                cash_type: cashType,
-                amount: amount
-            }]).select();
-
-            if (data && data.length > 0) {
-                const newTx = {
-                    id: data[0].id,
+            let insertedId = Date.now();
+            if(_supabase) {
+                const { data } = await _supabase.from('transactions').insert([{
                     account: state.currentAccount,
-                    type, date, desc, qty, category, cashType, amount
-                };
-                state.transactions.push(newTx);
+                    type: type,
+                    date: date,
+                    description: desc,
+                    qty: qty,
+                    category: category,
+                    cash_type: cashType,
+                    amount: amount
+                }]).select();
+                if(data && data.length) insertedId = data[0].id;
             }
+
+            state.transactions.push({
+                id: insertedId,
+                account: state.currentAccount,
+                type, date, desc, qty, category, cashType, amount
+            });
 
             document.getElementById(`${prefix}Desc`).value = '';
             document.getElementById(`${prefix}Amount`).value = '';
@@ -1048,7 +1064,7 @@
         }
 
         async function deleteTransaction(id) {
-            await _supabase.from('transactions').delete().eq('id', id);
+            if(_supabase) await _supabase.from('transactions').delete().eq('id', id);
             state.transactions = state.transactions.filter(t => t.id !== id);
             refreshCurrentPage();
         }
@@ -1208,23 +1224,24 @@
             const qty = parseInt(document.getElementById('assetQty').value);
             const price = parseFloat(document.getElementById('assetPrice').value);
 
-            const { data, error } = await _supabase.from('assets').insert([{
-                account: state.currentAccount,
-                date: date,
-                name: name,
-                type: type,
-                qty: qty,
-                price: price
-            }]).select();
-
-            if (data && data.length > 0) {
-                const newAsset = {
-                    id: data[0].id,
+            let insertedId = Date.now();
+            if(_supabase) {
+                const { data } = await _supabase.from('assets').insert([{
                     account: state.currentAccount,
-                    date, name, type, qty, price
-                };
-                state.assets.push(newAsset);
+                    date: date,
+                    name: name,
+                    type: type,
+                    qty: qty,
+                    price: price
+                }]).select();
+                if(data && data.length) insertedId = data[0].id;
             }
+
+            state.assets.push({
+                id: insertedId,
+                account: state.currentAccount,
+                date, name, type, qty, price
+            });
 
             document.getElementById('assetName').value = '';
             document.getElementById('assetPrice').value = '';
@@ -1233,7 +1250,7 @@
         }
 
         async function deleteAsset(id) {
-            await _supabase.from('assets').delete().eq('id', id);
+            if(_supabase) await _supabase.from('assets').delete().eq('id', id);
             state.assets = state.assets.filter(a => a.id !== id);
             renderAssetTable();
         }
