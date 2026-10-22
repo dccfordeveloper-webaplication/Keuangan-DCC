@@ -30,45 +30,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Supabase JS Client SDK -->
+    <!-- Supabase JS Client SDK MUST BE LOADED IN HEAD -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-javascript@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-        .bg-bri-gradient {
-            background: linear-gradient(135deg, #00529C 0%, #002E66 100%);
-        }
-        .bg-bri-card {
-            background: linear-gradient(135deg, #0066C8 0%, #003B80 100%);
-        }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.05);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(0,82,156,0.3);
-            border-radius: 10px;
-        }
-        .page-section {
-            animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .bg-bri-gradient { background: linear-gradient(135deg, #00529C 0%, #002E66 100%); }
+        .bg-bri-card { background: linear-gradient(135deg, #0066C8 0%, #003B80 100%); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
+        ::-webkit-scrollbar-thumb { background: rgba(0,82,156,0.3); border-radius: 10px; }
+        .page-section { animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .interactive-card {
-            transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-        .interactive-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 25px -5px rgba(0, 82, 156, 0.15);
-        }
+        .interactive-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .interactive-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px -5px rgba(0, 82, 156, 0.15); }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-300">
@@ -624,15 +602,18 @@
 
     </div>
 
-    <!-- JAVASCRIPT LOGIC DENGAN SUPABASE CLOUD & REALTIME -->
+    <!-- JAVASCRIPT LOGIC - VARIABEL UTAMA DIDAKLARASIKAN PERTAMA -->
     <script>
+        // 1. DEKLARASI KONSTANTA & INISIALISASI
+        const AUTH_PASSWORD = "dcc2026";
+        const DEFAULT_ACCOUNTS = ["Lantai 1", "Lantai 2"];
         const SUPABASE_URL = "https://rsxleuqxlqlszsihbrew.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzeGxldXF4lHFsc3pzaWhicmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTI1ODQsImV4cCI6MjEwODIyODU4NH0.p13W3tOoA6bhlGAY1gB-CtvXz2v1PM8YqNX5HiiSYG0";
-        
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const DEFAULT_ACCOUNTS = ["Lantai 1", "Lantai 2"];
-        const AUTH_PASSWORD = "dcc2026";
+        let _supabase = null;
+        if (typeof supabase !== 'undefined') {
+            _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
 
         let state = {
             currentAccount: "Lantai 1",
@@ -652,6 +633,7 @@
 
         let chartInstance = null;
 
+        // 2. LIFECYCLE & HANDLERS
         window.onload = async function() {
             loadLocalOptions();
             const today = new Date().toISOString().split('T')[0];
@@ -666,12 +648,27 @@
             }
         };
 
-        function loadLocalOptions() {
-            const savedInOpt = localStorage.getItem('brimo_in_options');
-            if (savedInOpt) state.inOptions = JSON.parse(savedInOpt);
+        function handleLogin(e) {
+            e.preventDefault();
+            const inputPass = document.getElementById('password').value;
+            const errorElement = document.getElementById('loginError');
 
-            const savedOutOpt = localStorage.getItem('brimo_out_options');
-            if (savedOutOpt) state.outOptions = JSON.parse(savedOutOpt);
+            if (inputPass === AUTH_PASSWORD) {
+                if (errorElement) errorElement.classList.add('hidden');
+                localStorage.setItem('brimo_logged_in', 'true');
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                initApp().catch(err => console.error("Initialization error:", err));
+            } else {
+                if (errorElement) errorElement.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('brimo_logged_in');
+            document.getElementById('password').value = '';
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
         }
 
         async function initApp() {
@@ -682,7 +679,16 @@
             refreshCurrentPage();
         }
 
+        function loadLocalOptions() {
+            const savedInOpt = localStorage.getItem('brimo_in_options');
+            if (savedInOpt) state.inOptions = JSON.parse(savedInOpt);
+
+            const savedOutOpt = localStorage.getItem('brimo_out_options');
+            if (savedOutOpt) state.outOptions = JSON.parse(savedOutOpt);
+        }
+
         async function fetchAllFromSupabase() {
+            if (!_supabase) return;
             try {
                 const { data: accData } = await _supabase.from('accounts').select('*');
                 if (accData && accData.length > 0) {
@@ -724,6 +730,7 @@
         }
 
         function setupRealtimeSync() {
+            if (!_supabase) return;
             _supabase
                 .channel('public-db-changes')
                 .on('postgres_changes', { event: '*', schema: 'public' }, async () => {
@@ -732,29 +739,6 @@
                     refreshCurrentPage();
                 })
                 .subscribe();
-        }
-
-        async function handleLogin(e) {
-            e.preventDefault();
-            const inputPass = document.getElementById('password').value;
-            const errorElement = document.getElementById('loginError');
-
-            if (inputPass === AUTH_PASSWORD) {
-                if (errorElement) errorElement.classList.add('hidden');
-                localStorage.setItem('brimo_logged_in', 'true');
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
-                await initApp();
-            } else {
-                if (errorElement) errorElement.classList.remove('hidden');
-            }
-        }
-
-        function handleLogout() {
-            localStorage.removeItem('brimo_logged_in');
-            document.getElementById('password').value = '';
-            document.getElementById('mainApp').classList.add('hidden');
-            document.getElementById('loginScreen').classList.remove('hidden');
         }
 
         let currentPage = 'beranda';
@@ -804,7 +788,7 @@
             const input = document.getElementById('newAccountName');
             const name = input.value.trim();
             if (name && !state.accounts.includes(name)) {
-                await _supabase.from('accounts').insert([{ name }]);
+                if (_supabase) await _supabase.from('accounts').insert([{ name }]);
                 state.accounts.push(name);
                 state.currentAccount = name;
                 renderAccountSelector();
@@ -931,24 +915,26 @@
             const cashType = document.getElementById(`${prefix}CashType`).value;
             const amount = parseFloat(document.getElementById(`${prefix}Amount`).value);
 
-            const { data } = await _supabase.from('transactions').insert([{
-                account: state.currentAccount,
-                type: type,
-                date: date,
-                description: desc,
-                qty: qty,
-                category: category,
-                cash_type: cashType,
-                amount: amount
-            }]).select();
-
-            if (data && data.length > 0) {
-                state.transactions.push({
-                    id: data[0].id,
+            let newId = Date.now();
+            if (_supabase) {
+                const { data } = await _supabase.from('transactions').insert([{
                     account: state.currentAccount,
-                    type, date, desc, qty, category, cashType, amount
-                });
+                    type: type,
+                    date: date,
+                    description: desc,
+                    qty: qty,
+                    category: category,
+                    cash_type: cashType,
+                    amount: amount
+                }]).select();
+                if (data && data.length > 0) newId = data[0].id;
             }
+
+            state.transactions.push({
+                id: newId,
+                account: state.currentAccount,
+                type, date, desc, qty, category, cashType, amount
+            });
 
             document.getElementById(`${prefix}Desc`).value = '';
             document.getElementById(`${prefix}Amount`).value = '';
@@ -956,7 +942,7 @@
         }
 
         async function deleteTransaction(id) {
-            await _supabase.from('transactions').delete().eq('id', id);
+            if (_supabase) await _supabase.from('transactions').delete().eq('id', id);
             state.transactions = state.transactions.filter(t => t.id !== id);
             refreshCurrentPage();
         }
@@ -1019,9 +1005,7 @@
             }).join('');
         }
 
-        function renderChartPage() {
-            updateChartData();
-        }
+        function renderChartPage() { updateChartData(); }
 
         function updateChartData() {
             const periodDays = parseInt(document.getElementById('chartPeriod').value);
@@ -1091,22 +1075,24 @@
             const qty = parseInt(document.getElementById('assetQty').value);
             const price = parseFloat(document.getElementById('assetPrice').value);
 
-            const { data } = await _supabase.from('assets').insert([{
-                account: state.currentAccount,
-                date: date,
-                name: name,
-                type: type,
-                qty: qty,
-                price: price
-            }]).select();
-
-            if (data && data.length > 0) {
-                state.assets.push({
-                    id: data[0].id,
+            let newId = Date.now();
+            if (_supabase) {
+                const { data } = await _supabase.from('assets').insert([{
                     account: state.currentAccount,
-                    date, name, type, qty, price
-                });
+                    date: date,
+                    name: name,
+                    type: type,
+                    qty: qty,
+                    price: price
+                }]).select();
+                if (data && data.length > 0) newId = data[0].id;
             }
+
+            state.assets.push({
+                id: newId,
+                account: state.currentAccount,
+                date, name, type, qty, price
+            });
 
             document.getElementById('assetName').value = '';
             document.getElementById('assetPrice').value = '';
@@ -1115,7 +1101,7 @@
         }
 
         async function deleteAsset(id) {
-            await _supabase.from('assets').delete().eq('id', id);
+            if (_supabase) await _supabase.from('assets').delete().eq('id', id);
             state.assets = state.assets.filter(a => a.id !== id);
             renderAssetTable();
         }
