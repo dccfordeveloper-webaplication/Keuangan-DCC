@@ -190,15 +190,13 @@
                     </div>
                 </div>
 
-                <!-- RINCIAN SALDO PER KAS ASAL (DINAMIS & TERPISAH) -->
+                <!-- RINCIAN SALDO PER KAS ASAL -->
                 <div>
                     <div class="flex justify-between items-center mb-2.5">
                         <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rincian Saldo Kas Asal</h3>
                         <span class="text-[10px] bg-blue-50 dark:bg-gray-700 text-bri-blue dark:text-blue-300 font-semibold px-2 py-0.5 rounded-full">Otomatik per Kas</span>
                     </div>
-                    <div id="cashTypeTablesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Tabel masing-masing Kas Asal dirender dinamis via JS -->
-                    </div>
+                    <div id="cashTypeTablesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 </div>
 
                 <div>
@@ -277,7 +275,6 @@
                     </form>
                 </div>
 
-                <!-- FILTER PEMASUKAN -->
                 <div class="flex gap-2 items-center bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-xs">
                     <span class="font-bold text-gray-500"><i class="fa-solid fa-filter mr-1"></i> Filter Jenis:</span>
                     <select id="filterInType" onchange="renderPemasukanTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold">
@@ -350,7 +347,6 @@
                     </form>
                 </div>
 
-                <!-- FILTER PENGELUARAN -->
                 <div class="flex gap-2 items-center bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-xs">
                     <span class="font-bold text-gray-500"><i class="fa-solid fa-filter mr-1"></i> Filter Jenis:</span>
                     <select id="filterOutType" onchange="renderPengeluaranTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold">
@@ -420,7 +416,7 @@
                 </div>
             </section>
 
-            <!-- 5. LAMAN GRAFIK MIKRO (Per Jenis Terpisah) -->
+            <!-- 5. LAMAN GRAFIK MIKRO (SCROLLABLE & INDIVIDUAL FILTER) -->
             <section id="page-grafik-mikro" class="page-section hidden space-y-6">
                 <div class="flex justify-between items-center">
                     <div>
@@ -695,6 +691,7 @@
                 categories: ["Operasional", "Kebutuhan", "Belanja Stok", "Maintenance"],
                 cashTypes: ["Kas Kasir", "Cashless", "Kas Besar"]
             },
+            microFilters: {},
             isBalanceHidden: false
         };
 
@@ -954,7 +951,6 @@
             document.getElementById('dashTotalProfit').innerText = formatRp(totalIn - totalOut);
             document.getElementById('dashTotalAsset').innerText = formatRp(currentAssetVal);
 
-            // RENDER TABEL KHUSUS TIAP KAS ASAL (DINAMIS)
             renderCashTypeTables(currentAccTx);
 
             const recentContainer = document.getElementById('recentTransactions');
@@ -986,12 +982,10 @@
             }).join('');
         }
 
-        // FUNGSI MEMBUAT TABEL MASING-MASING KAS ASAL SECARA FLEKSIBEL
         function renderCashTypeTables(currentAccTx) {
             const container = document.getElementById('cashTypeTablesContainer');
             if(!container) return;
 
-            // Ambil seluruh daftar Kas Asal unik dari state (Pemasukan & Pengeluaran)
             const allCashTypes = Array.from(new Set([...state.inOptions.cashTypes, ...state.outOptions.cashTypes]));
 
             if (allCashTypes.length === 0) {
@@ -1265,6 +1259,11 @@
             });
         }
 
+        // FUNGSI RENDER GRAFIK MIKRO DENGAN FILTER INDIVIDUAL & SCROLLABLE TABLE
+        function updateSingleMicroChart(key) {
+            renderMicroCharts();
+        }
+
         function renderMicroCharts() {
             const periodDays = parseInt(document.getElementById('microPeriod').value);
             const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
@@ -1277,12 +1276,22 @@
             Object.values(microChartInstances).forEach(c => c.destroy());
             microChartInstances = {};
 
-            // Mikro Pemasukan
+            // 1. Render Mikro Pemasukan
             const inContainer = document.getElementById('microInContainer');
             inContainer.innerHTML = '';
 
             state.inOptions.categories.forEach((cat, index) => {
-                const catTx = currentAccTx.filter(t => t.type === 'in' && t.category === cat);
+                const key = `in_${index}`;
+                const selectedDays = parseInt(state.microFilters[key] || periodDays);
+
+                let catTx = currentAccTx.filter(t => t.type === 'in' && t.category === cat);
+                
+                // Tentukan tanggal batas filter individual
+                if (selectedDays > 0) {
+                    const cutoff = getFormattedDate(-selectedDays + 1);
+                    catTx = catTx.filter(t => t.date >= cutoff);
+                }
+
                 const dataPoints = labels.map(lbl => {
                     const matching = catTx.filter(t => t.date.endsWith(lbl));
                     return matching.reduce((sum, t) => sum + (t.qty * t.amount), 0);
@@ -1293,33 +1302,47 @@
 
                 let htmlCard = `
                     <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3 interactive-card">
-                        <div class="flex justify-between items-center">
-                            <span class="px-2.5 py-1 rounded-lg bg-green-100 text-green-700 dark:bg-green-900/40 text-xs font-bold">${cat}</span>
-                            <span class="text-xs font-black text-green-600">Total: ${formatRp(totalCatVal)}</span>
+                        <div class="flex flex-wrap justify-between items-center gap-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2.5 py-1 rounded-lg bg-green-100 text-green-700 dark:bg-green-900/40 text-xs font-bold">${cat}</span>
+                                <span class="text-xs font-black text-green-600">Total: ${formatRp(totalCatVal)}</span>
+                            </div>
+                            <div class="flex items-center space-x-1 text-[10px]">
+                                <i class="fa-solid fa-filter text-gray-400"></i>
+                                <select onchange="state.microFilters['${key}'] = this.value; renderMicroCharts();" class="p-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none font-semibold">
+                                    <option value="0" ${selectedDays === 0 ? 'selected' : ''}>Semua Data</option>
+                                    <option value="7" ${selectedDays === 7 ? 'selected' : ''}>7 Hari</option>
+                                    <option value="30" ${selectedDays === 30 ? 'selected' : ''}>30 Hari</option>
+                                    <option value="365" ${selectedDays === 365 ? 'selected' : ''}>1 Tahun</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="w-full h-48">
+
+                        <div class="w-full h-44">
                             <canvas id="${chartId}"></canvas>
                         </div>
-                        <div class="overflow-x-auto pt-2">
+
+                        <!-- KONTEN TABEL DENGAN WIDGET SCROLL HINGGA RAPI -->
+                        <div class="max-h-44 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-xl">
                             <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="bg-gray-50 dark:bg-gray-700/50 text-gray-500">
+                                <thead class="sticky top-0 bg-gray-50 dark:bg-gray-700 text-gray-500 shadow-sm">
+                                    <tr>
                                         <th class="p-2">Tgl</th>
                                         <th class="p-2">Uraian</th>
                                         <th class="p-2 text-center">Qty</th>
                                         <th class="p-2 text-right">Total</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700/60">
                 `;
 
                 if (catTx.length === 0) {
-                    htmlCard += `<tr><td colspan="4" class="p-3 text-center text-gray-400">Belum ada data untuk jenis ${cat}</td></tr>`;
+                    htmlCard += `<tr><td colspan="4" class="p-3 text-center text-gray-400">Belum ada data transaksi</td></tr>`;
                 } else {
-                    [...catTx].reverse().slice(0, 5).forEach(t => {
+                    [...catTx].reverse().forEach(t => {
                         htmlCard += `
-                            <tr>
-                                <td class="p-2">${t.date}</td>
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                <td class="p-2 text-gray-400">${t.date}</td>
                                 <td class="p-2 font-semibold">${t.desc}</td>
                                 <td class="p-2 text-center">${t.qty}</td>
                                 <td class="p-2 text-right font-bold text-green-600">${formatRp(t.qty * t.amount)}</td>
@@ -1354,12 +1377,21 @@
                 });
             });
 
-            // Mikro Pengeluaran
+            // 2. Render Mikro Pengeluaran
             const outContainer = document.getElementById('microOutContainer');
             outContainer.innerHTML = '';
 
             state.outOptions.categories.forEach((cat, index) => {
-                const catTx = currentAccTx.filter(t => t.type === 'out' && t.category === cat);
+                const key = `out_${index}`;
+                const selectedDays = parseInt(state.microFilters[key] || periodDays);
+
+                let catTx = currentAccTx.filter(t => t.type === 'out' && t.category === cat);
+                
+                if (selectedDays > 0) {
+                    const cutoff = getFormattedDate(-selectedDays + 1);
+                    catTx = catTx.filter(t => t.date >= cutoff);
+                }
+
                 const dataPoints = labels.map(lbl => {
                     const matching = catTx.filter(t => t.date.endsWith(lbl));
                     return matching.reduce((sum, t) => sum + (t.qty * t.amount), 0);
@@ -1370,33 +1402,47 @@
 
                 let htmlCard = `
                     <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3 interactive-card">
-                        <div class="flex justify-between items-center">
-                            <span class="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 text-xs font-bold">${cat}</span>
-                            <span class="text-xs font-black text-red-600">Total: ${formatRp(totalCatVal)}</span>
+                        <div class="flex flex-wrap justify-between items-center gap-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 text-xs font-bold">${cat}</span>
+                                <span class="text-xs font-black text-red-600">Total: ${formatRp(totalCatVal)}</span>
+                            </div>
+                            <div class="flex items-center space-x-1 text-[10px]">
+                                <i class="fa-solid fa-filter text-gray-400"></i>
+                                <select onchange="state.microFilters['${key}'] = this.value; renderMicroCharts();" class="p-1 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none font-semibold">
+                                    <option value="0" ${selectedDays === 0 ? 'selected' : ''}>Semua Data</option>
+                                    <option value="7" ${selectedDays === 7 ? 'selected' : ''}>7 Hari</option>
+                                    <option value="30" ${selectedDays === 30 ? 'selected' : ''}>30 Hari</option>
+                                    <option value="365" ${selectedDays === 365 ? 'selected' : ''}>1 Tahun</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="w-full h-48">
+
+                        <div class="w-full h-44">
                             <canvas id="${chartId}"></canvas>
                         </div>
-                        <div class="overflow-x-auto pt-2">
+
+                        <!-- KONTEN TABEL DENGAN WIDGET SCROLL HINGGA RAPI -->
+                        <div class="max-h-44 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-xl">
                             <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="bg-gray-50 dark:bg-gray-700/50 text-gray-500">
+                                <thead class="sticky top-0 bg-gray-50 dark:bg-gray-700 text-gray-500 shadow-sm">
+                                    <tr>
                                         <th class="p-2">Tgl</th>
                                         <th class="p-2">Uraian</th>
                                         <th class="p-2 text-center">Qty</th>
                                         <th class="p-2 text-right">Total</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700/60">
                 `;
 
                 if (catTx.length === 0) {
-                    htmlCard += `<tr><td colspan="4" class="p-3 text-center text-gray-400">Belum ada data untuk jenis ${cat}</td></tr>`;
+                    htmlCard += `<tr><td colspan="4" class="p-3 text-center text-gray-400">Belum ada data transaksi</td></tr>`;
                 } else {
-                    [...catTx].reverse().slice(0, 5).forEach(t => {
+                    [...catTx].reverse().forEach(t => {
                         htmlCard += `
-                            <tr>
-                                <td class="p-2">${t.date}</td>
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                <td class="p-2 text-gray-400">${t.date}</td>
                                 <td class="p-2 font-semibold">${t.desc}</td>
                                 <td class="p-2 text-center">${t.qty}</td>
                                 <td class="p-2 text-right font-bold text-red-600">${formatRp(t.qty * t.amount)}</td>
