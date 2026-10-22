@@ -266,6 +266,14 @@
                     </form>
                 </div>
 
+                <!-- FILTER PEMASUKAN -->
+                <div class="flex gap-2 items-center bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-xs">
+                    <span class="font-bold text-gray-500"><i class="fa-solid fa-filter mr-1"></i> Filter Jenis:</span>
+                    <select id="filterInType" onchange="renderPemasukanTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold">
+                        <option value="ALL">Semua Jenis Pemasukan</option>
+                    </select>
+                </div>
+
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
@@ -331,6 +339,14 @@
                     </form>
                 </div>
 
+                <!-- FILTER PENGELUARAN -->
+                <div class="flex gap-2 items-center bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-xs">
+                    <span class="font-bold text-gray-500"><i class="fa-solid fa-filter mr-1"></i> Filter Jenis:</span>
+                    <select id="filterOutType" onchange="renderPengeluaranTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold">
+                        <option value="ALL">Semua Jenis Pengeluaran</option>
+                    </select>
+                </div>
+
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
@@ -356,7 +372,7 @@
                 <div class="flex justify-between items-center">
                     <div>
                         <h2 class="text-lg font-bold">Rekapan Analytics Keuangan</h2>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Diagram Omzet, Profit & Laba Kotor</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Diagram Omzet, Kategori Pemasukan & Pengeluaran</p>
                     </div>
                     <select id="chartPeriod" onchange="updateChartData()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
                         <option value="7">7 Hari Terakhir</option>
@@ -373,8 +389,22 @@
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
-                    <canvas id="financialChart" class="w-full h-64"></canvas>
+                <!-- Grafik Utama (Omzet, Profit, Expense) -->
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card space-y-2">
+                    <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Tren Keuangan Utama</h3>
+                    <canvas id="financialChart" class="w-full h-60"></canvas>
+                </div>
+
+                <!-- Grafik Perbandingan Kategori Pemasukan & Pengeluaran -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card space-y-2">
+                        <h3 class="text-xs font-bold text-green-600 dark:text-green-400 uppercase"><i class="fa-solid fa-chart-pie mr-1"></i> Pemasukan Berdasarkan Jenis</h3>
+                        <canvas id="categoryInChart" class="w-full h-52"></canvas>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card space-y-2">
+                        <h3 class="text-xs font-bold text-red-600 dark:text-red-400 uppercase"><i class="fa-solid fa-chart-pie mr-1"></i> Pengeluaran Berdasarkan Jenis</h3>
+                        <canvas id="categoryOutChart" class="w-full h-52"></canvas>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-2">
@@ -416,12 +446,20 @@
                     </div>
                 </div>
 
-                <div class="flex gap-2">
-                    <select id="assetFilterType" onchange="renderAssetTable()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-semibold shadow-sm">
-                        <option value="ALL">Semua Jenis Aset</option>
-                        <option value="Aset Berjalan">Aset Berjalan (Lancar)</option>
-                        <option value="Aset Tetap">Aset Tetap</option>
-                    </select>
+                <!-- FILTER ASET LENGKAP -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-xs">
+                    <div>
+                        <label class="block font-bold text-gray-500 mb-1">FILTER JENIS ASET</label>
+                        <select id="assetFilterType" onchange="renderAssetTable()" class="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold">
+                            <option value="ALL">Semua Jenis Aset</option>
+                            <option value="Aset Berjalan">Aset Berjalan (Lancar)</option>
+                            <option value="Aset Tetap">Aset Tetap</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-500 mb-1">CARI NAMA ITEM</label>
+                        <input type="text" id="assetSearchInput" oninput="renderAssetTable()" placeholder="Ketik nama aset..." class="w-full p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                    </div>
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-x-auto">
@@ -602,7 +640,7 @@
 
     </div>
 
-    <!-- JAVASCRIPT LOGIC DENGAN SUPABASE URL YANG BENAR -->
+    <!-- JAVASCRIPT LOGIC -->
     <script>
         const AUTH_PASSWORD = "dcc2026";
         const DEFAULT_ACCOUNTS = ["Lantai 1", "Lantai 2"];
@@ -635,6 +673,8 @@
         };
 
         let chartInstance = null;
+        let categoryInChartInstance = null;
+        let categoryOutChartInstance = null;
 
         window.onload = async function() {
             loadLocalOptions();
@@ -821,6 +861,10 @@
             document.getElementById('outCategory').innerHTML = state.outOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
             document.getElementById('outCashType').innerHTML = state.outOptions.cashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
 
+            // Filter dropdown jenis pemasukan & pengeluaran
+            document.getElementById('filterInType').innerHTML = `<option value="ALL">Semua Jenis Pemasukan</option>` + state.inOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('filterOutType').innerHTML = `<option value="ALL">Semua Jenis Pengeluaran</option>` + state.outOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
             const allCash = Array.from(new Set([...state.inOptions.cashTypes, ...state.outOptions.cashTypes]));
             document.getElementById('filterCashType').innerHTML = `<option value="ALL">Semua Kas</option>` + allCash.map(c => `<option value="${c}">${c}</option>`).join('');
         }
@@ -978,11 +1022,17 @@
         }
 
         function renderPemasukanTable() {
-            const list = state.transactions.filter(t => t.account === state.currentAccount && t.type === 'in');
+            const filterType = document.getElementById('filterInType').value;
+            let list = state.transactions.filter(t => t.account === state.currentAccount && t.type === 'in');
+
+            if (filterType !== 'ALL') {
+                list = list.filter(t => t.category === filterType);
+            }
+
             const tbody = document.getElementById('inTableBody');
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-gray-400">Belum ada catatan uang masuk pada ${state.currentAccount}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-gray-400">Belum ada catatan uang masuk yang sesuai filter</td></tr>`;
                 return;
             }
 
@@ -1007,11 +1057,17 @@
         }
 
         function renderPengeluaranTable() {
-            const list = state.transactions.filter(t => t.account === state.currentAccount && t.type === 'out');
+            const filterType = document.getElementById('filterOutType').value;
+            let list = state.transactions.filter(t => t.account === state.currentAccount && t.type === 'out');
+
+            if (filterType !== 'ALL') {
+                list = list.filter(t => t.category === filterType);
+            }
+
             const tbody = document.getElementById('outTableBody');
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-gray-400">Belum ada catatan uang keluar pada ${state.currentAccount}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-gray-400">Belum ada catatan uang keluar yang sesuai filter</td></tr>`;
                 return;
             }
 
@@ -1075,6 +1131,7 @@
                 alertBox.innerHTML = `✅ <b class="text-green-600 dark:text-green-400">Kondisi Sehat:</b> Alur transaksi stabil dan profitabel.`;
             }
 
+            // 1. Grafik Utama
             const ctx = document.getElementById('financialChart').getContext('2d');
             if (chartInstance) chartInstance.destroy();
 
@@ -1093,6 +1150,56 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
                     scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
+                }
+            });
+
+            // 2. Grafik Kategori Pemasukan
+            const inCategories = state.inOptions.categories;
+            const inCatTotals = inCategories.map(cat => {
+                return currentAccTx.filter(t => t.type === 'in' && t.category === cat).reduce((sum, t) => sum + (t.qty * t.amount), 0);
+            });
+
+            const ctxInCat = document.getElementById('categoryInChart').getContext('2d');
+            if (categoryInChartInstance) categoryInChartInstance.destroy();
+
+            categoryInChartInstance = new Chart(ctxInCat, {
+                type: 'doughnut',
+                data: {
+                    labels: inCategories,
+                    datasets: [{
+                        data: inCatTotals,
+                        backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+
+            // 3. Grafik Kategori Pengeluaran
+            const outCategories = state.outOptions.categories;
+            const outCatTotals = outCategories.map(cat => {
+                return currentAccTx.filter(t => t.type === 'out' && t.category === cat).reduce((sum, t) => sum + (t.qty * t.amount), 0);
+            });
+
+            const ctxOutCat = document.getElementById('categoryOutChart').getContext('2d');
+            if (categoryOutChartInstance) categoryOutChartInstance.destroy();
+
+            categoryOutChartInstance = new Chart(ctxOutCat, {
+                type: 'doughnut',
+                data: {
+                    labels: outCategories,
+                    datasets: [{
+                        data: outCatTotals,
+                        backgroundColor: ['#EF4444', '#F97316', '#64748B', '#14B8A6', '#A855F7', '#06B6D4']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
                 }
             });
         }
@@ -1152,10 +1259,16 @@
 
         function renderAssetTable() {
             const filterType = document.getElementById('assetFilterType').value;
+            const searchQuery = document.getElementById('assetSearchInput').value.toLowerCase();
+            
             let currentAssets = state.assets.filter(a => a.account === state.currentAccount);
 
             if (filterType !== 'ALL') {
                 currentAssets = currentAssets.filter(a => a.type === filterType);
+            }
+
+            if (searchQuery) {
+                currentAssets = currentAssets.filter(a => a.name.toLowerCase().includes(searchQuery));
             }
 
             const tbody = document.getElementById('assetTableBody');
@@ -1294,7 +1407,7 @@
             reportText += `━━━━━━━━━━━━━━━━━━━━━\n`;
             reportText += `_🤖 Diterbitkan otomatis oleh Sistem Keuangan Sektor DCC_`;
 
-            document.getElementById('waTextContent').innerText = reportText;
+            document.getElementById('waTextContent').innerText = reportTest;
             openModal('waModal');
         }
 
