@@ -704,10 +704,11 @@
 
     </div>
 
-    <!-- JAVASCRIPT LOGIC -->
+    <!-- JAVASCRIPT LOGIC DENGAN KREDENSIAL SUPABASE BARU & UNSINKRONISASI REALTIME -->
     <script>
+        // KREDENSIAL SUPABASE
         const SUPABASE_URL = "https://rsxleuqxlqlszsihbrew.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzeGxldXF4bHFsc3pzaWhicmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTI1ODQsImV4cCI6MjEwODIyODU4NH0.p13W3tOoA6bhlGAY1gB-CtvXz2v1PM8YqNX5HiiSYG0";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzeGxldXF4bHFsc3pzaWhicmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTI1ODQsImV4cCI6MjE0NzQ4MzY0N30.p13W3tOoA6bhlGAY1gB-CtvXz2v1PM8YqNX5HiiSYG0";
         
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -799,7 +800,7 @@
                     }));
                 }
             } catch (err) {
-                console.error("Gagal memuat data dari Supabase:", err);
+                console.error("Gagal mengambil data dari Supabase:", err);
             }
         }
 
@@ -822,12 +823,18 @@
             if (inputPass === AUTH_PASSWORD) {
                 if (errorElement) errorElement.classList.add('hidden');
                 localStorage.setItem('brimo_logged_in', 'true');
+                
+                // LANGSUNG MASUK BERANDA LOKAL DAHULU AGAR TIDAK ANJLOK
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
+
                 try {
                     await initApp();
                 } catch (err) {
-                    console.error("Error inisialisasi awal:", err);
+                    console.error("Inisialisasi cloud gagal, beralih ke mode lokal:", err);
+                    renderAccountSelector();
+                    renderDropdownOptions();
+                    refreshCurrentPage();
                 }
             } else {
                 if (errorElement) errorElement.classList.remove('hidden');
