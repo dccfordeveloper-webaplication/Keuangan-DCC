@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Keuangan Sektor - DCC</title>
-    <!-- Favicon menggunakan logo store.png sesuai lampiran repository -->
+    <!-- Favicon logo store.png -->
     <link rel="icon" type="image/png" href="logo store.png">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -30,6 +30,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS Client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-javascript@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         body {
@@ -67,7 +69,7 @@
                 transform: translateY(0);
             }
         }
-        /* Efek Interaktif Hover pada Kartu & Tombol */
+        /* Efek Interaktif Hover pada Kartu */
         .interactive-card {
             transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
@@ -106,7 +108,7 @@
                     <i class="fa-solid fa-arrow-right text-xs"></i>
                 </button>
             </form>
-            <p class="text-center text-[11px] text-gray-400 mt-6">Akses Khusus Bendahara • DCC System</p>
+            <p class="text-center text-[11px] text-gray-400 mt-6">Akses Khusus Bendahara • Realtime Cloud Sync</p>
         </div>
     </div>
 
@@ -121,7 +123,10 @@
                         <i class="fa-solid fa-user-shield text-base"></i>
                     </div>
                     <div>
-                        <p class="text-[11px] text-blue-200 font-medium">Admin,</p>
+                        <div class="flex items-center space-x-1.5">
+                            <p class="text-[11px] text-blue-200 font-medium">Admin,</p>
+                            <span id="cloudStatus" class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse" title="Tersambung ke Cloud Database"></span>
+                        </div>
                         <h1 class="font-bold text-sm md:text-base leading-tight" id="userDisplayName">Bendahara DCC</h1>
                     </div>
                 </div>
@@ -317,8 +322,8 @@
                             <input type="number" id="inAmount" placeholder="0" required min="1" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition font-bold">
                         </div>
                         <div class="md:col-span-2">
-                            <button type="submit" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl shadow-md transition transform active:scale-95">
-                                Simpan Pemasukan
+                            <button type="submit" id="btnSaveIn" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center space-x-2">
+                                <span>Simpan Pemasukan</span>
                             </button>
                         </div>
                     </form>
@@ -395,8 +400,8 @@
                             <input type="number" id="outAmount" placeholder="0" required min="1" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition font-bold">
                         </div>
                         <div class="md:col-span-2">
-                            <button type="submit" class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition transform active:scale-95">
-                                Simpan Pengeluaran
+                            <button type="submit" id="btnSaveOut" class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center space-x-2">
+                                <span>Simpan Pengeluaran</span>
                             </button>
                         </div>
                     </form>
@@ -622,9 +627,9 @@
 
         <!-- MODALS -->
 
-        <!-- 1. Modal WhatsApp Share Format (Diperbarui Lebih Menarik & Elegan) -->
+        <!-- 1. Modal WhatsApp Share Format -->
         <div id="waModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-fadeIn">
+            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
                 <div class="p-4 bg-green-600 text-white flex justify-between items-center shadow">
                     <h3 class="font-bold text-sm flex items-center space-x-2">
                         <i class="fa-brands fa-whatsapp text-lg"></i>
@@ -732,10 +737,17 @@
 
     </div>
 
-    <!-- JAVASCRIPT LOGIC -->
+    <!-- JAVASCRIPT LOGIC DENGAN SUPABASE REALTIME CLOUD SYNC -->
     <script>
+        // KREDENSIAL SUPABASE DATABASE
+        const SUPABASE_URL = "https://rsxleuqxlqlszsihbrew.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzeGxldXF4bHFsc3pzaWhicmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTI1ODQsImV4cCI6MjEwODIyODU4NH0.p13W3tOoA6bhlGAY1gB-CtvXz2v1PM8YqNX5HiiSYG0";
+        
+        // Inisialisasi Supabase SDK
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         const DEFAULT_ACCOUNTS = ["Lantai 1", "Lantai 2"];
-        const AUTH_PASSWORD = "dcc2026"; // PASSWORD KUNCI APLIKASI
+        const AUTH_PASSWORD = "dcc2026";
 
         let state = {
             currentAccount: "Lantai 1",
@@ -755,8 +767,8 @@
 
         let chartInstance = null;
 
-        window.onload = function() {
-            loadLocalStorage();
+        window.onload = async function() {
+            loadLocalOptions();
             const today = new Date().toISOString().split('T')[0];
             if(document.getElementById('inDate')) document.getElementById('inDate').value = today;
             if(document.getElementById('outDate')) document.getElementById('outDate').value = today;
@@ -765,40 +777,11 @@
             if(localStorage.getItem('brimo_logged_in') === 'true') {
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
-                initApp();
+                await initApp();
             }
         };
 
-        function loadLocalStorage() {
-            const savedAcc = localStorage.getItem('brimo_accounts');
-            state.accounts = savedAcc ? JSON.parse(savedAcc) : [...DEFAULT_ACCOUNTS];
-
-            const savedTx = localStorage.getItem('brimo_transactions');
-            if (savedTx) {
-                state.transactions = JSON.parse(savedTx);
-            } else {
-                const today = getFormattedDate(0);
-                state.transactions = [
-                    { id: 1, account: "Lantai 1", type: "in", date: today, desc: "Pemasukan Kasir Siang", qty: 1, category: "Penjualan", cashType: "Kas Kasir", amount: 1231000 },
-                    { id: 2, account: "Lantai 1", type: "in", date: today, desc: "Pemasukan QRIS / Transfer", qty: 1, category: "Penjualan", cashType: "Cashless", amount: 2139400 },
-                    { id: 3, account: "Lantai 2", type: "in", date: today, desc: "Pemasukan Kasir Floor 2", qty: 1, category: "Penjualan", cashType: "Kas Kasir", amount: 591500 },
-                    { id: 4, account: "Lantai 2", type: "in", date: today, desc: "Cashless QRIS Floor 2", qty: 1, category: "Penjualan", cashType: "Cashless", amount: 661800 },
-                    { id: 5, account: "Lantai 1", type: "out", date: today, desc: "Beli Kertas Nota & ATK", qty: 2, category: "Operasional", cashType: "Kas Kasir", amount: 75000 }
-                ];
-                saveStorage();
-            }
-
-            const savedAssets = localStorage.getItem('brimo_assets');
-            if (savedAssets) {
-                state.assets = JSON.parse(savedAssets);
-            } else {
-                state.assets = [
-                    { id: 1, account: "Lantai 1", date: "2026-01-10", name: "Mesin Kasir POS", type: "Aset Tetap", qty: 1, price: 3500000 },
-                    { id: 2, account: "Lantai 1", date: "2026-02-01", name: "Kertas Struk Roll", type: "Aset Berjalan", qty: 20, price: 15000 }
-                ];
-                saveStorage();
-            }
-
+        function loadLocalOptions() {
             const savedInOpt = localStorage.getItem('brimo_in_options');
             if (savedInOpt) state.inOptions = JSON.parse(savedInOpt);
 
@@ -806,21 +789,73 @@
             if (savedOutOpt) state.outOptions = JSON.parse(savedOutOpt);
         }
 
-        function saveStorage() {
-            localStorage.setItem('brimo_accounts', JSON.stringify(state.accounts));
-            localStorage.setItem('brimo_transactions', JSON.stringify(state.transactions));
-            localStorage.setItem('brimo_assets', JSON.stringify(state.assets));
-            localStorage.setItem('brimo_in_options', JSON.stringify(state.inOptions));
-            localStorage.setItem('brimo_out_options', JSON.stringify(state.outOptions));
-        }
-
-        function initApp() {
+        async function initApp() {
+            await fetchAllFromSupabase();
+            setupRealtimeSync();
             renderAccountSelector();
             renderDropdownOptions();
             refreshCurrentPage();
         }
 
-        function handleLogin(e) {
+        // 1. FETCH DATA DARI SUPABASE CLOUD
+        async function fetchAllFromSupabase() {
+            try {
+                // Ambil Akun
+                const { data: accData, error: accErr } = await _supabase.from('accounts').select('*');
+                if (accData && accData.length > 0) {
+                    state.accounts = accData.map(a => a.name);
+                } else {
+                    state.accounts = [...DEFAULT_ACCOUNTS];
+                }
+
+                // Ambil Transaksi
+                const { data: txData, error: txErr } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
+                if (txData) {
+                    state.transactions = txData.map(t => ({
+                        id: t.id,
+                        account: t.account,
+                        type: t.type,
+                        date: t.date,
+                        desc: t.description,
+                        qty: t.qty,
+                        category: t.category,
+                        cashType: t.cash_type,
+                        amount: Number(t.amount)
+                    }));
+                }
+
+                // Ambil Aset
+                const { data: assetData, error: assetErr } = await _supabase.from('assets').select('*').order('id', { ascending: true });
+                if (assetData) {
+                    state.assets = assetData.map(a => ({
+                        id: a.id,
+                        account: a.account,
+                        date: a.date,
+                        name: a.name,
+                        type: a.type,
+                        qty: a.qty,
+                        price: Number(a.price)
+                    }));
+                }
+            } catch (err) {
+                console.error("Gagal mengambil data dari Supabase:", err);
+            }
+        }
+
+        // 2. REALTIME SYNC LISTENER (LIVESYNC ANTAR DEVICE)
+        function setupRealtimeSync() {
+            _supabase
+                .channel('public-db-changes')
+                .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
+                    console.log("Perubahan data terdeteksi di Cloud, memperbarui...", payload);
+                    await fetchAllFromSupabase();
+                    renderAccountSelector();
+                    refreshCurrentPage();
+                })
+                .subscribe();
+        }
+
+        async function handleLogin(e) {
             e.preventDefault();
             const inputPass = document.getElementById('password').value;
             const errorElement = document.getElementById('loginError');
@@ -830,7 +865,7 @@
                 localStorage.setItem('brimo_logged_in', 'true');
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
-                initApp();
+                await initApp();
             } else {
                 if (errorElement) errorElement.classList.remove('hidden');
             }
@@ -876,6 +911,9 @@
         // MULTI-ACCOUNT MANAGEMENT
         function renderAccountSelector() {
             const select = document.getElementById('accountSelect');
+            if(!state.accounts.includes(state.currentAccount) && state.accounts.length > 0) {
+                state.currentAccount = state.accounts[0];
+            }
             select.innerHTML = state.accounts.map(acc => `<option value="${acc}" ${acc === state.currentAccount ? 'selected' : ''}>${acc}</option>`).join('');
         }
 
@@ -884,14 +922,14 @@
             refreshCurrentPage();
         }
 
-        function handleAddAccount(e) {
+        async function handleAddAccount(e) {
             e.preventDefault();
             const input = document.getElementById('newAccountName');
             const name = input.value.trim();
             if (name && !state.accounts.includes(name)) {
+                await _supabase.from('accounts').insert([{ name }]);
                 state.accounts.push(name);
                 state.currentAccount = name;
-                saveStorage();
                 renderAccountSelector();
                 closeModal('addAccountModal');
                 input.value = '';
@@ -934,12 +972,13 @@
             if (targetType === 'in') {
                 if (catArr.length) state.inOptions.categories = catArr;
                 if (cashArr.length) state.inOptions.cashTypes = cashArr;
+                localStorage.setItem('brimo_in_options', JSON.stringify(state.inOptions));
             } else {
                 if (catArr.length) state.outOptions.categories = catArr;
                 if (cashArr.length) state.outOptions.cashTypes = cashArr;
+                localStorage.setItem('brimo_out_options', JSON.stringify(state.outOptions));
             }
 
-            saveStorage();
             renderDropdownOptions();
             closeModal('customOptionModal');
             refreshCurrentPage();
@@ -1006,8 +1045,8 @@
             renderDashboard();
         }
 
-        // 2 & 3. TRANSAKSI (PEMASUKAN & PENGELUARAN)
-        function saveTransaction(e, type) {
+        // 2 & 3. TRANSAKSI (PEMASUKAN & PENGELUARAN DENGAN CLOUD SAVE)
+        async function saveTransaction(e, type) {
             e.preventDefault();
             const prefix = type === 'in' ? 'in' : 'out';
 
@@ -1018,23 +1057,35 @@
             const cashType = document.getElementById(`${prefix}CashType`).value;
             const amount = parseFloat(document.getElementById(`${prefix}Amount`).value);
 
-            const newTx = {
-                id: Date.now(),
+            // Simpan ke Supabase Database
+            const { data, error } = await _supabase.from('transactions').insert([{
                 account: state.currentAccount,
-                type, date, desc, qty, category, cashType, amount
-            };
+                type: type,
+                date: date,
+                description: desc,
+                qty: qty,
+                category: category,
+                cash_type: cashType,
+                amount: amount
+            }]).select();
 
-            state.transactions.push(newTx);
-            saveStorage();
+            if (data && data.length > 0) {
+                const newTx = {
+                    id: data[0].id,
+                    account: state.currentAccount,
+                    type, date, desc, qty, category, cashType, amount
+                };
+                state.transactions.push(newTx);
+            }
 
             document.getElementById(`${prefix}Desc`).value = '';
             document.getElementById(`${prefix}Amount`).value = '';
             refreshCurrentPage();
         }
 
-        function deleteTransaction(id) {
+        async function deleteTransaction(id) {
+            await _supabase.from('transactions').delete().eq('id', id);
             state.transactions = state.transactions.filter(t => t.id !== id);
-            saveStorage();
             refreshCurrentPage();
         }
 
@@ -1186,8 +1237,8 @@
             });
         }
 
-        // 5. ASET LOGIC
-        function saveAsset(e) {
+        // 5. ASET LOGIC WITH CLOUD SAVE
+        async function saveAsset(e) {
             e.preventDefault();
             const date = document.getElementById('assetDate').value;
             const name = document.getElementById('assetName').value.trim();
@@ -1195,14 +1246,23 @@
             const qty = parseInt(document.getElementById('assetQty').value);
             const price = parseFloat(document.getElementById('assetPrice').value);
 
-            const newAsset = {
-                id: Date.now(),
+            const { data, error } = await _supabase.from('assets').insert([{
                 account: state.currentAccount,
-                date, name, type, qty, price
-            };
+                date: date,
+                name: name,
+                type: type,
+                qty: qty,
+                price: price
+            }]).select();
 
-            state.assets.push(newAsset);
-            saveStorage();
+            if (data && data.length > 0) {
+                const newAsset = {
+                    id: data[0].id,
+                    account: state.currentAccount,
+                    date, name, type, qty, price
+                };
+                state.assets.push(newAsset);
+            }
 
             document.getElementById('assetName').value = '';
             document.getElementById('assetPrice').value = '';
@@ -1210,9 +1270,9 @@
             renderAssetTable();
         }
 
-        function deleteAsset(id) {
+        async function deleteAsset(id) {
+            await _supabase.from('assets').delete().eq('id', id);
             state.assets = state.assets.filter(a => a.id !== id);
-            saveStorage();
             renderAssetTable();
         }
 
@@ -1257,7 +1317,7 @@
             }).join('');
         }
 
-        // 6. LAPORAN & WHATSAPP SHARE (FORMAT LEBIH MENARIK DAN ELEGAN)
+        // 6. LAPORAN & WHATSAPP SHARE
         function renderReportTable() {
             const startDate = document.getElementById('filterStartDate').value;
             const endDate = document.getElementById('filterEndDate').value;
