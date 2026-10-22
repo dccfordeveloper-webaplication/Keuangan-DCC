@@ -201,13 +201,13 @@
                             <div class="w-11 h-11 rounded-2xl bg-red-500 text-white flex items-center justify-center mb-1 shadow-md shadow-red-500/20 group-hover:scale-110 transition"><i class="fa-solid fa-circle-arrow-up text-lg"></i></div>
                             <span class="text-[11px] font-bold">Pengeluaran</span>
                         </button>
-                        <button onclick="navigateTo('laporan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
-                            <div class="w-11 h-11 rounded-2xl bg-bri-orange text-white flex items-center justify-center mb-1 shadow-md shadow-orange-500/20 group-hover:scale-110 transition"><i class="fa-solid fa-file-invoice-dollar text-lg"></i></div>
-                            <span class="text-[11px] font-bold">Lapor WA</span>
-                        </button>
-                        <button onclick="navigateTo('rekapan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
+                        <button onclick="navigateTo('grafik-makro')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
                             <div class="w-11 h-11 rounded-2xl bg-bri-blue text-white flex items-center justify-center mb-1 shadow-md shadow-blue-500/20 group-hover:scale-110 transition"><i class="fa-solid fa-chart-line text-lg"></i></div>
-                            <span class="text-[11px] font-bold">Analytics</span>
+                            <span class="text-[11px] font-bold">Makro</span>
+                        </button>
+                        <button onclick="navigateTo('grafik-mikro')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
+                            <div class="w-11 h-11 rounded-2xl bg-bri-orange text-white flex items-center justify-center mb-1 shadow-md shadow-orange-500/20 group-hover:scale-110 transition"><i class="fa-solid fa-chart-pie text-lg"></i></div>
+                            <span class="text-[11px] font-bold">Mikro</span>
                         </button>
                     </div>
                 </div>
@@ -367,12 +367,12 @@
                 </div>
             </section>
 
-            <!-- 4. LAMAN REKAPAN -->
-            <section id="page-rekapan" class="page-section hidden space-y-4">
+            <!-- 4. LAMAN GRAFIK MAKRO -->
+            <section id="page-grafik-makro" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
-                        <h2 class="text-lg font-bold">Rekapan Analytics Keuangan</h2>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Diagram Omzet, Kategori Pemasukan & Pengeluaran</p>
+                        <h2 class="text-lg font-bold">Grafik Makro Keuangan</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Diagram Omzet, Profit & Pengeluaran Umum</p>
                     </div>
                     <select id="chartPeriod" onchange="updateChartData()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
                         <option value="7">7 Hari Terakhir</option>
@@ -389,22 +389,8 @@
                     </div>
                 </div>
 
-                <!-- Grafik Utama (Omzet, Profit, Expense) -->
-                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card space-y-2">
-                    <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Tren Keuangan Utama</h3>
-                    <canvas id="financialChart" class="w-full h-60"></canvas>
-                </div>
-
-                <!-- Grafik Perbandingan Kategori Pemasukan & Pengeluaran -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card space-y-2">
-                        <h3 class="text-xs font-bold text-green-600 dark:text-green-400 uppercase"><i class="fa-solid fa-chart-pie mr-1"></i> Pemasukan Berdasarkan Jenis</h3>
-                        <canvas id="categoryInChart" class="w-full h-52"></canvas>
-                    </div>
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card space-y-2">
-                        <h3 class="text-xs font-bold text-red-600 dark:text-red-400 uppercase"><i class="fa-solid fa-chart-pie mr-1"></i> Pengeluaran Berdasarkan Jenis</h3>
-                        <canvas id="categoryOutChart" class="w-full h-52"></canvas>
-                    </div>
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
+                    <canvas id="financialChart" class="w-full h-64"></canvas>
                 </div>
 
                 <div class="grid grid-cols-3 gap-2">
@@ -423,7 +409,36 @@
                 </div>
             </section>
 
-            <!-- 5. LAMAN ASET -->
+            <!-- 5. LAMAN GRAFIK MIKRO (Per Jenis Terpisah) -->
+            <section id="page-grafik-mikro" class="page-section hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-bold">Grafik Mikro Per Jenis Transaksi</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Pertumbuhan & tabel terpisah tiap jenis pemasukan dan pengeluaran</p>
+                    </div>
+                    <select id="microPeriod" onchange="renderMicroCharts()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
+                        <option value="7">7 Hari Terakhir</option>
+                        <option value="30">30 Hari Terakhir</option>
+                        <option value="365">1 Tahun</option>
+                    </select>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-bold text-green-600 dark:text-green-400 uppercase mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-arrow-down"></i> Grafik & Tabel Mikro Pemasukan
+                    </h3>
+                    <div id="microInContainer" class="space-y-6"></div>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <h3 class="text-sm font-bold text-red-600 dark:text-red-400 uppercase mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-arrow-up"></i> Grafik & Tabel Mikro Pengeluaran
+                    </h3>
+                    <div id="microOutContainer" class="space-y-6"></div>
+                </div>
+            </section>
+
+            <!-- 6. LAMAN ASET -->
             <section id="page-aset" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -446,7 +461,6 @@
                     </div>
                 </div>
 
-                <!-- FILTER ASET LENGKAP -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-xs">
                     <div>
                         <label class="block font-bold text-gray-500 mb-1">FILTER JENIS ASET</label>
@@ -481,7 +495,7 @@
                 </div>
             </section>
 
-            <!-- 6. LAMAN LAPORAN -->
+            <!-- 7. LAMAN LAPORAN -->
             <section id="page-laporan" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -538,14 +552,15 @@
         </main>
 
         <!-- BOTTOM NAVIGATION BAR -->
-        <nav class="fixed bottom-0 left-0 right-0 max-w-md md:max-w-5xl mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 px-2 py-2.5 shadow-2xl">
+        <nav class="fixed bottom-0 left-0 right-0 max-w-md md:max-w-5xl mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 px-1.5 py-2 shadow-2xl">
             <div class="flex justify-around items-center">
-                <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-house text-base"></i><span class="text-[10px] font-bold mt-0.5">Beranda</span></button>
-                <button onclick="navigateTo('pemasukan')" id="nav-pemasukan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-circle-arrow-down text-base"></i><span class="text-[10px] font-bold mt-0.5">Pemasukan</span></button>
-                <button onclick="navigateTo('pengeluaran')" id="nav-pengeluaran" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-circle-arrow-up text-base"></i><span class="text-[10px] font-bold mt-0.5">Pengeluaran</span></button>
-                <button onclick="navigateTo('rekapan')" id="nav-rekapan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-line text-base"></i><span class="text-[10px] font-bold mt-0.5">Rekapan</span></button>
-                <button onclick="navigateTo('aset')" id="nav-aset" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-boxes-packing text-base"></i><span class="text-[10px] font-bold mt-0.5">Aset</span></button>
-                <button onclick="navigateTo('laporan')" id="nav-laporan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-file-lines text-base"></i><span class="text-[10px] font-bold mt-0.5">Laporan</span></button>
+                <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-house text-sm"></i><span class="text-[9px] font-bold mt-0.5">Beranda</span></button>
+                <button onclick="navigateTo('pemasukan')" id="nav-pemasukan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-circle-arrow-down text-sm"></i><span class="text-[9px] font-bold mt-0.5">Masuk</span></button>
+                <button onclick="navigateTo('pengeluaran')" id="nav-pengeluaran" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-circle-arrow-up text-sm"></i><span class="text-[9px] font-bold mt-0.5">Keluar</span></button>
+                <button onclick="navigateTo('grafik-makro')" id="nav-grafik-makro" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-line text-sm"></i><span class="text-[9px] font-bold mt-0.5">Makro</span></button>
+                <button onclick="navigateTo('grafik-mikro')" id="nav-grafik-mikro" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-pie text-sm"></i><span class="text-[9px] font-bold mt-0.5">Mikro</span></button>
+                <button onclick="navigateTo('aset')" id="nav-aset" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-boxes-packing text-sm"></i><span class="text-[9px] font-bold mt-0.5">Aset</span></button>
+                <button onclick="navigateTo('laporan')" id="nav-laporan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-file-lines text-sm"></i><span class="text-[9px] font-bold mt-0.5">Laporan</span></button>
             </div>
         </nav>
 
@@ -673,8 +688,7 @@
         };
 
         let chartInstance = null;
-        let categoryInChartInstance = null;
-        let categoryOutChartInstance = null;
+        let microChartInstances = {};
 
         window.onload = async function() {
             loadLocalOptions();
@@ -819,7 +833,8 @@
             if (currentPage === 'beranda') renderDashboard();
             if (currentPage === 'pemasukan') renderPemasukanTable();
             if (currentPage === 'pengeluaran') renderPengeluaranTable();
-            if (currentPage === 'rekapan') renderChartPage();
+            if (currentPage === 'grafik-makro') renderChartPage();
+            if (currentPage === 'grafik-mikro') renderMicroCharts();
             if (currentPage === 'aset') renderAssetTable();
             if (currentPage === 'laporan') renderReportTable();
         }
@@ -861,7 +876,6 @@
             document.getElementById('outCategory').innerHTML = state.outOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
             document.getElementById('outCashType').innerHTML = state.outOptions.cashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
 
-            // Filter dropdown jenis pemasukan & pengeluaran
             document.getElementById('filterInType').innerHTML = `<option value="ALL">Semua Jenis Pemasukan</option>` + state.inOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
             document.getElementById('filterOutType').innerHTML = `<option value="ALL">Semua Jenis Pengeluaran</option>` + state.outOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
 
@@ -1131,7 +1145,6 @@
                 alertBox.innerHTML = `✅ <b class="text-green-600 dark:text-green-400">Kondisi Sehat:</b> Alur transaksi stabil dan profitabel.`;
             }
 
-            // 1. Grafik Utama
             const ctx = document.getElementById('financialChart').getContext('2d');
             if (chartInstance) chartInstance.destroy();
 
@@ -1152,55 +1165,179 @@
                     scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
                 }
             });
+        }
 
-            // 2. Grafik Kategori Pemasukan
-            const inCategories = state.inOptions.categories;
-            const inCatTotals = inCategories.map(cat => {
-                return currentAccTx.filter(t => t.type === 'in' && t.category === cat).reduce((sum, t) => sum + (t.qty * t.amount), 0);
-            });
+        // Render Grafik & Tabel Mikro (Terpisah Tiap Jenis)
+        function renderMicroCharts() {
+            const periodDays = parseInt(document.getElementById('microPeriod').value);
+            const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
 
-            const ctxInCat = document.getElementById('categoryInChart').getContext('2d');
-            if (categoryInChartInstance) categoryInChartInstance.destroy();
+            const labels = [];
+            for (let i = periodDays - 1; i >= 0; i--) {
+                labels.push(getFormattedDate(-i).slice(5));
+            }
 
-            categoryInChartInstance = new Chart(ctxInCat, {
-                type: 'doughnut',
-                data: {
-                    labels: inCategories,
-                    datasets: [{
-                        data: inCatTotals,
-                        backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+            // Hancurkan chart mikro lama jika ada
+            Object.values(microChartInstances).forEach(c => c.destroy());
+            microChartInstances = {};
+
+            // 1. Render Mikro Pemasukan
+            const inContainer = document.getElementById('microInContainer');
+            inContainer.innerHTML = '';
+
+            state.inOptions.categories.forEach((cat, index) => {
+                const catTx = currentAccTx.filter(t => t.type === 'in' && t.category === cat);
+                const dataPoints = labels.map(lbl => {
+                    const fullDateStr = getFormattedDate(0).slice(0, 5) + lbl; // simple match or direct loop below
+                    // better date matching:
+                    const matching = catTx.filter(t => t.date.endsWith(lbl));
+                    return matching.reduce((sum, t) => sum + (t.qty * t.amount), 0);
+                });
+
+                const totalCatVal = catTx.reduce((sum, t) => sum + (t.qty * t.amount), 0);
+                const cardId = `micro_in_${index}`;
+                const chartId = `chart_in_${index}`;
+
+                let htmlCard = `
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3 interactive-card">
+                        <div class="flex justify-between items-center">
+                            <span class="px-2.5 py-1 rounded-lg bg-green-100 text-green-700 dark:bg-green-900/40 text-xs font-bold">${cat}</span>
+                            <span class="text-xs font-black text-green-600">Total: ${formatRp(totalCatVal)}</span>
+                        </div>
+                        <div class="w-full h-48">
+                            <canvas id="${chartId}"></canvas>
+                        </div>
+                        <div class="overflow-x-auto pt-2">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-gray-50 dark:bg-gray-700/50 text-gray-500">
+                                        <th class="p-2">Tgl</th>
+                                        <th class="p-2">Uraian</th>
+                                        <th class="p-2 text-center">Qty</th>
+                                        <th class="p-2 text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                `;
+
+                if (catTx.length === 0) {
+                    htmlCard += `<tr><td colspan="4" class="p-3 text-center text-gray-400">Belum ada data untuk jenis ${cat}</td></tr>`;
+                } else {
+                    [...catTx].reverse().slice(0, 5).forEach(t => {
+                        htmlCard += `
+                            <tr>
+                                <td class="p-2">${t.date}</td>
+                                <td class="p-2 font-semibold">${t.desc}</td>
+                                <td class="p-2 text-center">${t.qty}</td>
+                                <td class="p-2 text-right font-bold text-green-600">${formatRp(t.qty * t.amount)}</td>
+                            </tr>
+                        `;
+                    });
                 }
+
+                htmlCard += `</tbody></table></div></div>`;
+                inContainer.insertAdjacentHTML('beforeend', htmlCard);
+
+                // Buat Chart Garis Mikro
+                const ctx = document.getElementById(chartId).getContext('2d');
+                microChartInstances[chartId] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: `Pertumbuhan ${cat}`,
+                            data: dataPoints,
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
+                    }
+                });
             });
 
-            // 3. Grafik Kategori Pengeluaran
-            const outCategories = state.outOptions.categories;
-            const outCatTotals = outCategories.map(cat => {
-                return currentAccTx.filter(t => t.type === 'out' && t.category === cat).reduce((sum, t) => sum + (t.qty * t.amount), 0);
-            });
+            // 2. Render Mikro Pengeluaran
+            const outContainer = document.getElementById('microOutContainer');
+            outContainer.innerHTML = '';
 
-            const ctxOutCat = document.getElementById('categoryOutChart').getContext('2d');
-            if (categoryOutChartInstance) categoryOutChartInstance.destroy();
+            state.outOptions.categories.forEach((cat, index) => {
+                const catTx = currentAccTx.filter(t => t.type === 'out' && t.category === cat);
+                const dataPoints = labels.map(lbl => {
+                    const matching = catTx.filter(t => t.date.endsWith(lbl));
+                    return matching.reduce((sum, t) => sum + (t.qty * t.amount), 0);
+                });
 
-            categoryOutChartInstance = new Chart(ctxOutCat, {
-                type: 'doughnut',
-                data: {
-                    labels: outCategories,
-                    datasets: [{
-                        data: outCatTotals,
-                        backgroundColor: ['#EF4444', '#F97316', '#64748B', '#14B8A6', '#A855F7', '#06B6D4']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                const totalCatVal = catTx.reduce((sum, t) => sum + (t.qty * t.amount), 0);
+                const chartId = `chart_out_${index}`;
+
+                let htmlCard = `
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3 interactive-card">
+                        <div class="flex justify-between items-center">
+                            <span class="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 text-xs font-bold">${cat}</span>
+                            <span class="text-xs font-black text-red-600">Total: ${formatRp(totalCatVal)}</span>
+                        </div>
+                        <div class="w-full h-48">
+                            <canvas id="${chartId}"></canvas>
+                        </div>
+                        <div class="overflow-x-auto pt-2">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-gray-50 dark:bg-gray-700/50 text-gray-500">
+                                        <th class="p-2">Tgl</th>
+                                        <th class="p-2">Uraian</th>
+                                        <th class="p-2 text-center">Qty</th>
+                                        <th class="p-2 text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                `;
+
+                if (catTx.length === 0) {
+                    htmlCard += `<tr><td colspan="4" class="p-3 text-center text-gray-400">Belum ada data untuk jenis ${cat}</td></tr>`;
+                } else {
+                    [...catTx].reverse().slice(0, 5).forEach(t => {
+                        htmlCard += `
+                            <tr>
+                                <td class="p-2">${t.date}</td>
+                                <td class="p-2 font-semibold">${t.desc}</td>
+                                <td class="p-2 text-center">${t.qty}</td>
+                                <td class="p-2 text-right font-bold text-red-600">${formatRp(t.qty * t.amount)}</td>
+                            </tr>
+                        `;
+                    });
                 }
+
+                htmlCard += `</tbody></table></div></div>`;
+                outContainer.insertAdjacentHTML('beforeend', htmlCard);
+
+                // Buat Chart Garis Mikro Pengeluaran
+                const ctx = document.getElementById(chartId).getContext('2d');
+                microChartInstances[chartId] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: `Pertumbuhan ${cat}`,
+                            data: dataPoints,
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
+                    }
+                });
             });
         }
 
@@ -1407,7 +1544,7 @@
             reportText += `━━━━━━━━━━━━━━━━━━━━━\n`;
             reportText += `_🤖 Diterbitkan otomatis oleh Sistem Keuangan Sektor DCC_`;
 
-            document.getElementById('waTextContent').innerText = reportTest;
+            document.getElementById('waTextContent').innerText = reportText;
             openModal('waModal');
         }
 
