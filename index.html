@@ -190,6 +190,17 @@
                     </div>
                 </div>
 
+                <!-- RINCIAN SALDO PER KAS ASAL (DINAMIS & TERPISAH) -->
+                <div>
+                    <div class="flex justify-between items-center mb-2.5">
+                        <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rincian Saldo Kas Asal</h3>
+                        <span class="text-[10px] bg-blue-50 dark:bg-gray-700 text-bri-blue dark:text-blue-300 font-semibold px-2 py-0.5 rounded-full">Otomatik per Kas</span>
+                    </div>
+                    <div id="cashTypeTablesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Tabel masing-masing Kas Asal dirender dinamis via JS -->
+                    </div>
+                </div>
+
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Pintasan Cepat</h3>
                     <div class="grid grid-cols-4 gap-3 text-center">
@@ -943,6 +954,9 @@
             document.getElementById('dashTotalProfit').innerText = formatRp(totalIn - totalOut);
             document.getElementById('dashTotalAsset').innerText = formatRp(currentAssetVal);
 
+            // RENDER TABEL KHUSUS TIAP KAS ASAL (DINAMIS)
+            renderCashTypeTables(currentAccTx);
+
             const recentContainer = document.getElementById('recentTransactions');
             const sorted = [...currentAccTx].reverse().slice(0, 5);
 
@@ -967,6 +981,90 @@
                         <span class="font-extrabold text-xs ${t.type === 'in' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
                             ${t.type === 'in' ? '+' : '-'}${formatRp(totalVal)}
                         </span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // FUNGSI MEMBUAT TABEL MASING-MASING KAS ASAL SECARA FLEKSIBEL
+        function renderCashTypeTables(currentAccTx) {
+            const container = document.getElementById('cashTypeTablesContainer');
+            if(!container) return;
+
+            // Ambil seluruh daftar Kas Asal unik dari state (Pemasukan & Pengeluaran)
+            const allCashTypes = Array.from(new Set([...state.inOptions.cashTypes, ...state.outOptions.cashTypes]));
+
+            if (allCashTypes.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center">Belum ada Kas Asal terdaftar.</p>`;
+                return;
+            }
+
+            container.innerHTML = allCashTypes.map(cashName => {
+                const cashTx = currentAccTx.filter(t => t.cashType === cashName);
+                
+                let cashIn = 0;
+                let cashOut = 0;
+
+                cashTx.forEach(t => {
+                    const totalVal = t.qty * t.amount;
+                    if (t.type === 'in') cashIn += totalVal;
+                    if (t.type === 'out') cashOut += totalVal;
+                });
+
+                const cashBalance = cashIn - cashOut;
+                const recentFive = [...cashTx].reverse().slice(0, 5);
+
+                return `
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm interactive-card flex flex-col justify-between space-y-3">
+                        <div class="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2.5">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-bri-blue dark:text-blue-300 flex items-center justify-center text-xs font-bold">
+                                    <i class="fa-solid fa-wallet"></i>
+                                </div>
+                                <h4 class="font-extrabold text-xs text-gray-800 dark:text-gray-100">${cashName}</h4>
+                            </div>
+                            <span class="text-xs font-black ${cashBalance >= 0 ? 'text-bri-blue dark:text-blue-300' : 'text-red-500'} bg-blue-50 dark:bg-gray-700/60 px-2.5 py-1 rounded-xl">
+                                ${state.isBalanceHidden ? "Rp ••••••••" : formatRp(cashBalance)}
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 text-[10px]">
+                            <div class="bg-green-50 dark:bg-green-900/20 p-2 rounded-xl">
+                                <span class="text-gray-400 font-semibold block">Total Masuk</span>
+                                <span class="font-extrabold text-green-600 dark:text-green-400 text-xs">${formatRp(cashIn)}</span>
+                            </div>
+                            <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded-xl">
+                                <span class="text-gray-400 font-semibold block">Total Keluar</span>
+                                <span class="font-extrabold text-red-600 dark:text-red-400 text-xs">${formatRp(cashOut)}</span>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-[11px]">
+                                <thead>
+                                    <tr class="text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                                        <th class="py-1.5 font-semibold">Tgl</th>
+                                        <th class="py-1.5 font-semibold">Uraian</th>
+                                        <th class="py-1.5 font-semibold text-right">Nominal</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                    ${recentFive.length === 0 ? `
+                                        <tr>
+                                            <td colspan="3" class="py-3 text-center text-gray-400 text-[10px]">Belum ada aktivitas kas ini</td>
+                                        </tr>
+                                    ` : recentFive.map(t => `
+                                        <tr>
+                                            <td class="py-1.5 text-gray-400">${t.date.slice(5)}</td>
+                                            <td class="py-1.5 font-medium truncate max-w-[120px]">${t.desc}</td>
+                                            <td class="py-1.5 text-right font-bold ${t.type === 'in' ? 'text-green-600' : 'text-red-600'}">
+                                                ${t.type === 'in' ? '+' : '-'}${formatRp(t.qty * t.amount)}
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -1167,7 +1265,6 @@
             });
         }
 
-        // Render Grafik & Tabel Mikro (Terpisah Tiap Jenis)
         function renderMicroCharts() {
             const periodDays = parseInt(document.getElementById('microPeriod').value);
             const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
@@ -1177,25 +1274,21 @@
                 labels.push(getFormattedDate(-i).slice(5));
             }
 
-            // Hancurkan chart mikro lama jika ada
             Object.values(microChartInstances).forEach(c => c.destroy());
             microChartInstances = {};
 
-            // 1. Render Mikro Pemasukan
+            // Mikro Pemasukan
             const inContainer = document.getElementById('microInContainer');
             inContainer.innerHTML = '';
 
             state.inOptions.categories.forEach((cat, index) => {
                 const catTx = currentAccTx.filter(t => t.type === 'in' && t.category === cat);
                 const dataPoints = labels.map(lbl => {
-                    const fullDateStr = getFormattedDate(0).slice(0, 5) + lbl; // simple match or direct loop below
-                    // better date matching:
                     const matching = catTx.filter(t => t.date.endsWith(lbl));
                     return matching.reduce((sum, t) => sum + (t.qty * t.amount), 0);
                 });
 
                 const totalCatVal = catTx.reduce((sum, t) => sum + (t.qty * t.amount), 0);
-                const cardId = `micro_in_${index}`;
                 const chartId = `chart_in_${index}`;
 
                 let htmlCard = `
@@ -1238,7 +1331,6 @@
                 htmlCard += `</tbody></table></div></div>`;
                 inContainer.insertAdjacentHTML('beforeend', htmlCard);
 
-                // Buat Chart Garis Mikro
                 const ctx = document.getElementById(chartId).getContext('2d');
                 microChartInstances[chartId] = new Chart(ctx, {
                     type: 'line',
@@ -1262,7 +1354,7 @@
                 });
             });
 
-            // 2. Render Mikro Pengeluaran
+            // Mikro Pengeluaran
             const outContainer = document.getElementById('microOutContainer');
             outContainer.innerHTML = '';
 
@@ -1316,7 +1408,6 @@
                 htmlCard += `</tbody></table></div></div>`;
                 outContainer.insertAdjacentHTML('beforeend', htmlCard);
 
-                // Buat Chart Garis Mikro Pengeluaran
                 const ctx = document.getElementById(chartId).getContext('2d');
                 microChartInstances[chartId] = new Chart(ctx, {
                     type: 'line',
