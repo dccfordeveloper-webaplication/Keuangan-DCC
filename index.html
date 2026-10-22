@@ -55,43 +55,39 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-200">
 
-    <!-- LOGIN SCREEN MODERN -->
+    <!-- LOGIN SCREEN (HANYA PASSWORD "dcc2026") -->
     <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-bri-gradient p-4">
         <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 md:p-8 relative overflow-hidden">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-xl"></div>
             <div class="text-center mb-8 relative z-10">
                 <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-2xl mb-3 text-bri-blue dark:text-blue-400 shadow-inner">
-                    <i class="fa-solid fa-wallet text-3xl"></i>
+                    <i class="fa-solid fa-user-tie text-3xl"></i>
                 </div>
-                <h2 class="text-2xl font-extrabold text-gray-900 dark:text-white">BRImo Keuangan Sektor</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Sistem Pencatatan, Aset & Analytics Terintegrasi</p>
+                <h2 class="text-2xl font-extrabold text-gray-900 dark:text-white">Akses Bendahara DCC</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Masukkan Password Akses Keuangan Sektor</p>
             </div>
-            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4 relative z-10">
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5 relative z-10">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">USER ID / USERNAME</label>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">PASSWORD AKSE BENDARARA</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-user text-sm"></i></span>
-                        <input type="text" id="username" required value="staf_dcc" class="w-full pl-10 pr-4 py-3 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-bri-blue outline-none transition">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400"><i class="fa-solid fa-key text-sm"></i></span>
+                        <input type="password" id="password" required placeholder="Masukkan password" class="w-full pl-10 pr-4 py-3.5 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-bri-blue outline-none transition font-bold tracking-wider">
                     </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">PASSWORD</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-lock text-sm"></i></span>
-                        <input type="password" id="password" required value="123456" class="w-full pl-10 pr-4 py-3 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-bri-blue outline-none transition">
-                    </div>
+                    <p id="loginError" class="text-[11px] text-red-500 font-semibold mt-1.5 hidden flex items-center gap-1">
+                        <i class="fa-solid fa-circle-exclamation"></i> Password salah! Silakan coba lagi.
+                    </p>
                 </div>
                 <button type="submit" class="w-full py-3.5 bg-bri-blue hover:bg-bri-darkblue text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition transform active:scale-95 flex items-center justify-center space-x-2">
-                    <span>Login Masuk</span>
+                    <span>Masuk ke Sistem</span>
                     <i class="fa-solid fa-arrow-right text-xs"></i>
                 </button>
             </form>
-            <p class="text-center text-[11px] text-gray-400 mt-6">Demo mode aktif: Klik tombol untuk langsung masuk.</p>
+            <p class="text-center text-[11px] text-gray-400 mt-6">Akses Khusus Bendahara • Password Default: <span class="font-mono font-bold text-bri-blue dark:text-blue-400">dcc2026</span></p>
         </div>
     </div>
 
     <!-- MAIN APPLICATION WRAPPER -->
-    <div id="mainApp" class="hidden min-h-screen flex flex-col max-w-md md:max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-2xl relative pb-24 md:pb-8">
+    <div id="mainApp" class="hidden min-h-screen flex flex-col max-w-md md:max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-2xl relative">
         
         <!-- HEADER TOP BAR BRImo -->
         <header class="bg-bri-gradient text-white p-4 sticky top-0 z-30 rounded-b-2xl shadow-md">
@@ -101,8 +97,8 @@
                         <i class="fa-solid fa-user-shield text-base"></i>
                     </div>
                     <div>
-                        <p class="text-[11px] text-blue-200 font-medium">Selamat Datang,</p>
-                        <h1 class="font-bold text-sm md:text-base leading-tight" id="userDisplayName">Staf DCC Sektor</h1>
+                        <p class="text-[11px] text-blue-200 font-medium">Panel Akses,</p>
+                        <h1 class="font-bold text-sm md:text-base leading-tight" id="userDisplayName">Bendahara DCC</h1>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
@@ -137,8 +133,8 @@
             </div>
         </header>
 
-        <!-- MAIN CONTENT CONTAINER -->
-        <main class="flex-1 p-4 overflow-y-auto space-y-5">
+        <!-- MAIN CONTENT CONTAINER WITH IMPROVED SCROLL PADDING (pb-32) -->
+        <main class="flex-1 p-4 overflow-y-auto space-y-5 pb-32">
             
             <!-- 1. LAMAN BERANDA (DASHBOARD) -->
             <section id="page-beranda" class="space-y-5">
@@ -167,7 +163,7 @@
                     </div>
                 </div>
 
-                <!-- FITUR BARU: 3 KARTU INDIKATOR UTAMA KEUANGAN DI BERANDA -->
+                <!-- 3 KARTU INDIKATOR UTAMA KEUANGAN DI BERANDA -->
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Ringkasan Keuangan Sektor</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -570,8 +566,8 @@
 
         </main>
 
-        <!-- BOTTOM NAVIGATION BAR -->
-        <nav class="fixed bottom-0 left-0 right-0 max-w-md md:max-w-5xl mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 px-2 py-2">
+        <!-- BOTTOM NAVIGATION BAR (FIXED AT BOTTOM) -->
+        <nav class="fixed bottom-0 left-0 right-0 max-w-md md:max-w-5xl mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 px-2 py-2.5 shadow-2xl">
             <div class="flex justify-around items-center">
                 <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue">
                     <i class="fa-solid fa-house text-base"></i>
@@ -715,6 +711,7 @@
     <!-- JAVASCRIPT LOGIC -->
     <script>
         const DEFAULT_ACCOUNTS = ["Lantai 1", "Lantai 2"];
+        const AUTH_PASSWORD = "dcc2026"; // PASSWORD KUNCI APLIKASI
 
         let state = {
             currentAccount: "Lantai 1",
@@ -801,14 +798,23 @@
 
         function handleLogin(e) {
             e.preventDefault();
-            localStorage.setItem('brimo_logged_in', 'true');
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
-            initApp();
+            const inputPass = document.getElementById('password').value;
+            const errorElement = document.getElementById('loginError');
+
+            if (inputPass === AUTH_PASSWORD) {
+                if (errorElement) errorElement.classList.add('hidden');
+                localStorage.setItem('brimo_logged_in', 'true');
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                initApp();
+            } else {
+                if (errorElement) errorElement.classList.remove('hidden');
+            }
         }
 
         function handleLogout() {
             localStorage.removeItem('brimo_logged_in');
+            document.getElementById('password').value = '';
             document.getElementById('mainApp').classList.add('hidden');
             document.getElementById('loginScreen').classList.remove('hidden');
         }
@@ -915,7 +921,7 @@
             refreshCurrentPage();
         }
 
-        // 1. BERANDA LOGIC (LENGKAP DENGAN 3 KARTU INDIKATOR UTAMA KEUANGAN)
+        // 1. BERANDA LOGIC
         function renderDashboard() {
             const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
             let totalIn = 0, totalOut = 0;
@@ -928,18 +934,15 @@
 
             const currentBalance = totalIn - totalOut;
 
-            // Hitung Total Aset Akun Aktif
             let currentAssetVal = 0;
             state.assets.filter(a => a.account === state.currentAccount).forEach(a => {
                 currentAssetVal += (a.qty * a.price);
             });
 
-            // Update Cards
             document.getElementById('dashboardBalance').innerText = state.isBalanceHidden ? "Rp ••••••••" : formatRp(currentBalance);
             document.getElementById('dashIncome').innerText = formatRp(totalIn);
             document.getElementById('dashExpense').innerText = formatRp(totalOut);
 
-            // Update 3 Indicator Cards di Beranda
             document.getElementById('dashTotalOmzet').innerText = formatRp(totalIn);
             document.getElementById('dashTotalProfit').innerText = formatRp(totalIn - totalOut);
             document.getElementById('dashTotalAsset').innerText = formatRp(currentAssetVal);
@@ -1230,7 +1233,7 @@
             }).join('');
         }
 
-        // 6. LAPORAN, EXPORT CSV & WHATSAPP SHARE LOGIC
+        // 6. LAPORAN & WHATSAPP SHARE
         function renderReportTable() {
             const startDate = document.getElementById('filterStartDate').value;
             const endDate = document.getElementById('filterEndDate').value;
