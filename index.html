@@ -30,8 +30,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Supabase JS Client SDK MUST BE LOADED IN HEAD -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-javascript@2"></script>
+    <!-- Supabase JS Client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -95,7 +95,7 @@
                     <div>
                         <div class="flex items-center space-x-1.5">
                             <p class="text-[11px] text-blue-200 font-medium">Admin,</p>
-                            <span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse" title="Tersambung ke Cloud"></span>
+                            <span id="syncIndicator" class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse" title="Tersambung ke Cloud"></span>
                         </div>
                         <h1 class="font-bold text-sm md:text-base leading-tight">Bendahara DCC</h1>
                     </div>
@@ -602,17 +602,20 @@
 
     </div>
 
-    <!-- JAVASCRIPT LOGIC - VARIABEL UTAMA DIDAKLARASIKAN PERTAMA -->
+    <!-- JAVASCRIPT LOGIC DENGAN SUPABASE CLIENT YANG AMAN -->
     <script>
-        // 1. DEKLARASI KONSTANTA & INISIALISASI
         const AUTH_PASSWORD = "dcc2026";
         const DEFAULT_ACCOUNTS = ["Lantai 1", "Lantai 2"];
         const SUPABASE_URL = "https://rsxleuqxlqlszsihbrew.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzeGxldXF4lHFsc3pzaWhicmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTI1ODQsImV4cCI6MjEwODIyODU4NH0.p13W3tOoA6bhlGAY1gB-CtvXz2v1PM8YqNX5HiiSYG0";
 
         let _supabase = null;
-        if (typeof supabase !== 'undefined') {
-            _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        try {
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+        } catch (e) {
+            console.error("Gagal inisialisasi Supabase client:", e);
         }
 
         let state = {
@@ -633,7 +636,6 @@
 
         let chartInstance = null;
 
-        // 2. LIFECYCLE & HANDLERS
         window.onload = async function() {
             loadLocalOptions();
             const today = new Date().toISOString().split('T')[0];
@@ -688,17 +690,23 @@
         }
 
         async function fetchAllFromSupabase() {
-            if (!_supabase) return;
+            if (!_supabase) {
+                console.warn("Supabase tidak aktif, menggunakan data lokal.");
+                return;
+            }
             try {
-                const { data: accData } = await _supabase.from('accounts').select('*');
-                if (accData && accData.length > 0) {
+                const indicator = document.getElementById('syncIndicator');
+                if(indicator) indicator.className = "inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse";
+
+                const { data: accData, error: accErr } = await _supabase.from('accounts').select('*');
+                if (!accErr && accData && accData.length > 0) {
                     state.accounts = accData.map(a => a.name);
-                } else {
+                } else if (state.accounts.length === 0) {
                     state.accounts = [...DEFAULT_ACCOUNTS];
                 }
 
-                const { data: txData } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
-                if (txData) {
+                const { data: txData, error: txErr } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
+                if (!txErr && txData) {
                     state.transactions = txData.map(t => ({
                         id: t.id,
                         account: t.account,
@@ -712,8 +720,8 @@
                     }));
                 }
 
-                const { data: assetData } = await _supabase.from('assets').select('*').order('id', { ascending: true });
-                if (assetData) {
+                const { data: assetData, error: assetErr } = await _supabase.from('assets').select('*').order('id', { ascending: true });
+                if (!assetErr && assetData) {
                     state.assets = assetData.map(a => ({
                         id: a.id,
                         account: a.account,
@@ -726,19 +734,25 @@
                 }
             } catch (err) {
                 console.error("Gagal sinkronisasi cloud:", err);
+                const indicator = document.getElementById('syncIndicator');
+                if(indicator) indicator.className = "inline-block w-2 h-2 bg-red-500 rounded-full";
             }
         }
 
         function setupRealtimeSync() {
             if (!_supabase) return;
-            _supabase
-                .channel('public-db-changes')
-                .on('postgres_changes', { event: '*', schema: 'public' }, async () => {
-                    await fetchAllFromSupabase();
-                    renderAccountSelector();
-                    refreshCurrentPage();
-                })
-                .subscribe();
+            try {
+                _supabase
+                    .channel('public-db-changes')
+                    .on('postgres_changes', { event: '*', schema: 'public' }, async () => {
+                        await fetchAllFromSupabase();
+                        renderAccountSelector();
+                        refreshCurrentPage();
+                    })
+                    .subscribe();
+            } catch (e) {
+                console.error("Gagal mengaktifkan Realtime listener:", e);
+            }
         }
 
         let currentPage = 'beranda';
@@ -788,7 +802,9 @@
             const input = document.getElementById('newAccountName');
             const name = input.value.trim();
             if (name && !state.accounts.includes(name)) {
-                if (_supabase) await _supabase.from('accounts').insert([{ name }]);
+                if (_supabase) {
+                    await _supabase.from('accounts').insert([{ name }]);
+                }
                 state.accounts.push(name);
                 state.currentAccount = name;
                 renderAccountSelector();
@@ -915,26 +931,34 @@
             const cashType = document.getElementById(`${prefix}CashType`).value;
             const amount = parseFloat(document.getElementById(`${prefix}Amount`).value);
 
-            let newId = Date.now();
-            if (_supabase) {
-                const { data } = await _supabase.from('transactions').insert([{
-                    account: state.currentAccount,
-                    type: type,
-                    date: date,
-                    description: desc,
-                    qty: qty,
-                    category: category,
-                    cash_type: cashType,
-                    amount: amount
-                }]).select();
-                if (data && data.length > 0) newId = data[0].id;
+            if (!_supabase) {
+                alert("Koneksi database belum siap!");
+                return;
             }
 
-            state.transactions.push({
-                id: newId,
+            const { data, error } = await _supabase.from('transactions').insert([{
                 account: state.currentAccount,
-                type, date, desc, qty, category, cashType, amount
-            });
+                type: type,
+                date: date,
+                description: desc,
+                qty: qty,
+                category: category,
+                cash_type: cashType,
+                amount: amount
+            }]).select();
+
+            if (error) {
+                alert("Gagal menyimpan ke database: " + error.message);
+                return;
+            }
+
+            if (data && data.length > 0) {
+                state.transactions.push({
+                    id: data[0].id,
+                    account: state.currentAccount,
+                    type, date, desc, qty, category, cashType, amount
+                });
+            }
 
             document.getElementById(`${prefix}Desc`).value = '';
             document.getElementById(`${prefix}Amount`).value = '';
@@ -942,7 +966,13 @@
         }
 
         async function deleteTransaction(id) {
-            if (_supabase) await _supabase.from('transactions').delete().eq('id', id);
+            if (_supabase) {
+                const { error } = await _supabase.from('transactions').delete().eq('id', id);
+                if (error) {
+                    alert("Gagal menghapus data: " + error.message);
+                    return;
+                }
+            }
             state.transactions = state.transactions.filter(t => t.id !== id);
             refreshCurrentPage();
         }
@@ -1075,24 +1105,32 @@
             const qty = parseInt(document.getElementById('assetQty').value);
             const price = parseFloat(document.getElementById('assetPrice').value);
 
-            let newId = Date.now();
-            if (_supabase) {
-                const { data } = await _supabase.from('assets').insert([{
-                    account: state.currentAccount,
-                    date: date,
-                    name: name,
-                    type: type,
-                    qty: qty,
-                    price: price
-                }]).select();
-                if (data && data.length > 0) newId = data[0].id;
+            if (!_supabase) {
+                alert("Koneksi database belum siap!");
+                return;
             }
 
-            state.assets.push({
-                id: newId,
+            const { data, error } = await _supabase.from('assets').insert([{
                 account: state.currentAccount,
-                date, name, type, qty, price
-            });
+                date: date,
+                name: name,
+                type: type,
+                qty: qty,
+                price: price
+            }]).select();
+
+            if (error) {
+                alert("Gagal menyimpan aset: " + error.message);
+                return;
+            }
+
+            if (data && data.length > 0) {
+                state.assets.push({
+                    id: data[0].id,
+                    account: state.currentAccount,
+                    date, name, type, qty, price
+                });
+            }
 
             document.getElementById('assetName').value = '';
             document.getElementById('assetPrice').value = '';
@@ -1101,7 +1139,13 @@
         }
 
         async function deleteAsset(id) {
-            if (_supabase) await _supabase.from('assets').delete().eq('id', id);
+            if (_supabase) {
+                const { error } = await _supabase.from('assets').delete().eq('id', id);
+                if (error) {
+                    alert("Gagal menghapus aset: " + error.message);
+                    return;
+                }
+            }
             state.assets = state.assets.filter(a => a.id !== id);
             renderAssetTable();
         }
