@@ -1,0 +1,1791 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SektorKeuangan - BRImo Style Financial System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brimo: {
+                            blue: '#00529C',
+                            darkBlue: '#003366',
+                            lightBlue: '#1078CA',
+                            accent: '#F26522',
+                            bgLight: '#F3F6FA',
+                            cardLight: '#FFFFFF',
+                            bgDark: '#0F172A',
+                            cardDark: '#1E293B'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-brimo-bgLight dark:bg-brimo-bgDark text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-gradient-to-r from-brimo-darkBlue via-brimo-blue to-brimo-lightBlue text-white sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- Brand Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 p-2 rounded-xl backdrop-blur-md border border-white/20">
+                    <i class="fa-solid fa-wallet text-xl text-amber-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide leading-none flex items-center gap-2">
+                        SektorKeuangan
+                        <span class="bg-orange-500 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-extrabold text-white">PRO</span>
+                    </h1>
+                    <p class="text-xs text-blue-100 opacity-80 mt-0.5">Sistem Pencatatan BRImo Style</p>
+                </div>
+            </div>
+
+            <!-- Header Actions: Account Selector & Options Modal -->
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <!-- Sync Status Indicator -->
+                <div id="syncIndicator" title="Status Supabase Cloud DB" class="hidden sm:flex items-center text-[11px] bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 px-2.5 py-1 rounded-lg gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Cloud Sync</span>
+                </div>
+
+                <!-- Select Active Account/Sektor -->
+                <div class="relative">
+                    <select id="accountSelector" onchange="changeAccount()" class="bg-white/10 text-white text-xs sm:text-sm font-medium rounded-lg px-3 py-1.5 pr-7 border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer appearance-none">
+                        <!-- Populated by JS -->
+                    </select>
+                    <i class="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none text-blue-200"></i>
+                </div>
+
+                <!-- Add New Account Button -->
+                <button onclick="openModal('modalAddAccount')" title="Tambah Akun Sektor" class="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition border border-white/20">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+
+                <!-- Custom Options & Columns Modal Trigger -->
+                <button onclick="openModal('modalSettings')" title="Pengaturan Opsi & Kolom Custom" class="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition border border-white/20">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+
+                <!-- Dark Mode Toggle Button -->
+                <button onclick="toggleDarkMode()" id="themeToggleBtn" title="Mode Gelap/Terang" class="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-amber-300 text-sm transition border border-white/20">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+        <!-- Navigation Tabs -->
+        <nav class="flex space-x-2 bg-white dark:bg-brimo-cardDark p-1.5 rounded-xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 mb-6 overflow-x-auto custom-scrollbar">
+            <button onclick="switchTab('beranda')" id="tab-beranda" class="tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 transition-all duration-200 bg-brimo-blue text-white shadow-sm">
+                <i class="fa-solid fa-house"></i>
+                <span>Beranda</span>
+            </button>
+            <button onclick="switchTab('pemasukan')" id="tab-pemasukan" class="tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 transition-all duration-200 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <i class="fa-solid fa-circle-arrow-down text-emerald-500"></i>
+                <span>Pemasukan</span>
+            </button>
+            <button onclick="switchTab('pengeluaran')" id="tab-pengeluaran" class="tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 transition-all duration-200 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <i class="fa-solid fa-circle-arrow-up text-rose-500"></i>
+                <span>Pengeluaran</span>
+            </button>
+            <button onclick="switchTab('aset')" id="tab-aset" class="tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 transition-all duration-200 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <i class="fa-solid fa-boxes-stacked text-amber-500"></i>
+                <span>Inventaris / Aset</span>
+            </button>
+            <button onclick="switchTab('rekapan')" id="tab-rekapan" class="tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 transition-all duration-200 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <i class="fa-solid fa-file-invoice-dollar text-indigo-500"></i>
+                <span>Laporan & WA</span>
+            </button>
+        </nav>
+
+        <!-- Dynamic Content Sections -->
+        
+        <!-- SECTION 1: BERANDA -->
+        <section id="sec-beranda" class="space-y-6">
+            <!-- Account Info Card -->
+            <div class="bg-gradient-to-r from-brimo-blue to-brimo-darkBlue rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded font-medium">Sektor Aktif</span>
+                            <span id="displayAccountCategory" class="text-xs bg-amber-400 text-slate-900 font-bold px-2 py-0.5 rounded">Utama</span>
+                        </div>
+                        <h2 id="displayAccountName" class="text-2xl font-extrabold tracking-tight">Sektor Utama / Kasir 1</h2>
+                        <p class="text-xs text-blue-100 mt-1">Sistem Terintegrasi Database Cloud Supabase</p>
+                    </div>
+                    <div class="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 w-full md:w-auto text-right">
+                        <p class="text-xs text-blue-100 font-medium">Total Saldo Tersedia</p>
+                        <h3 id="dashTotalSaldo" class="text-2xl font-black text-amber-300 tracking-tight mt-0.5">Rp 0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Summary Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Omzet (Total Pemasukan) -->
+                <div class="bg-white dark:bg-brimo-cardDark p-5 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Omzet (Pemasukan)</span>
+                        <div class="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm">
+                            <i class="fa-solid fa-arrow-down-left"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 id="dashOmzet" class="text-xl font-extrabold text-slate-800 dark:text-white">Rp 0</h4>
+                        <p class="text-[11px] text-slate-400 mt-1">Akumulasi seluruh pemasukan</p>
+                    </div>
+                </div>
+
+                <!-- Total Pengeluaran -->
+                <div class="bg-white dark:bg-brimo-cardDark p-5 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Pengeluaran</span>
+                        <div class="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center text-sm">
+                            <i class="fa-solid fa-arrow-up-right"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 id="dashPengeluaran" class="text-xl font-extrabold text-slate-800 dark:text-white">Rp 0</h4>
+                        <p class="text-[11px] text-slate-400 mt-1">Akumulasi biaya operasional</p>
+                    </div>
+                </div>
+
+                <!-- Profit -->
+                <div class="bg-white dark:bg-brimo-cardDark p-5 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Profit</span>
+                        <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-brimo-blue dark:text-blue-400 flex items-center justify-center text-sm">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 id="dashProfit" class="text-xl font-extrabold text-brimo-blue dark:text-blue-400">Rp 0</h4>
+                        <p class="text-[11px] text-slate-400 mt-1">Omzet dikurangi Pengeluaran</p>
+                    </div>
+                </div>
+
+                <!-- Kas Kasir vs Cashless -->
+                <div class="bg-white dark:bg-brimo-cardDark p-5 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Metode Kas</span>
+                        <div class="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm">
+                            <i class="fa-solid fa-vault"></i>
+                        </div>
+                    </div>
+                    <div class="space-y-1 mt-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500 dark:text-slate-400">Kas Kasir:</span>
+                            <span id="dashKasKasir" class="font-bold">Rp 0</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500 dark:text-slate-400">Cashless:</span>
+                            <span id="dashCashless" class="font-bold">Rp 0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Chart and Quick Stats -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Main Trend Chart -->
+                <div class="lg:col-span-2 bg-white dark:bg-brimo-cardDark p-5 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-base font-bold text-slate-800 dark:text-white">Tren Keuangan Sektor</h3>
+                        <span class="text-xs text-slate-400">Pemasukan vs Pengeluaran</span>
+                    </div>
+                    <div class="h-64 w-full relative">
+                        <canvas id="financeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions Mini Card -->
+                <div class="bg-white dark:bg-brimo-cardDark p-5 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-base font-bold text-slate-800 dark:text-white">Transaksi Terakhir</h3>
+                            <button onclick="switchTab('pemasukan')" class="text-xs text-brimo-blue dark:text-blue-400 hover:underline">Lihat Semua</button>
+                        </div>
+                        <div id="dashRecentTransactions" class="space-y-3 custom-scrollbar max-h-56 overflow-y-auto">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50 flex justify-between items-center text-xs text-slate-500">
+                        <span>Total Transaksi Sektor</span>
+                        <span id="dashTotalTxCount" class="font-bold text-slate-700 dark:text-slate-200">0 Transaksi</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: PEMASUKAN -->
+        <section id="sec-pemasukan" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Input Form -->
+                <div class="bg-white dark:bg-brimo-cardDark p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80">
+                    <h3 id="formPemasukanTitle" class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-plus text-emerald-500"></i> Catat Pemasukan
+                    </h3>
+                    <form id="formPemasukan" onsubmit="handlePemasukanSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="editPemasukanId" value="">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Tanggal</label>
+                            <input type="date" id="pemTanggal" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Kategori Pemasukan</label>
+                            <select id="pemKategori" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                                <!-- Dynamic options from settings -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Jenis Kas / Saldo</label>
+                            <select id="pemJenisKas" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                                <!-- Dynamic options from settings -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nominal (Rp)</label>
+                            <input type="number" id="pemNominal" min="1" placeholder="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Keterangan / Deskripsi</label>
+                            <input type="text" id="pemKeterangan" placeholder="Contoh: Penjualan Produk A" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <!-- Container Dynamic Custom Input Columns -->
+                        <div id="dynamicCustomInputsPemasukan" class="space-y-4 pt-1">
+                            <!-- Custom fields rendered here -->
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" id="btnCancelPemasukan" onclick="resetPemasukanForm()" class="hidden flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-100 transition">Batal</button>
+                            <button type="submit" id="btnSavePemasukan" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">Simpan Pemasukan</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Table View -->
+                <div class="lg:col-span-2 bg-white dark:bg-brimo-cardDark p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white">Riwayat Pemasukan</h3>
+                            <div class="text-xs text-slate-500">Total: <span id="pemTotalSummary" class="font-bold text-emerald-600">Rp 0</span></div>
+                        </div>
+
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left text-xs sm:text-sm">
+                                <thead>
+                                    <tr id="pemTableHeader" class="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold uppercase tracking-wider">
+                                        <th class="py-3 px-2">Tanggal</th>
+                                        <th class="py-3 px-2">Kategori</th>
+                                        <th class="py-3 px-2">Kas</th>
+                                        <th class="py-3 px-2">Keterangan</th>
+                                        <!-- Custom Column Headers appended via JS -->
+                                        <th class="py-3 px-2 text-right">Nominal</th>
+                                        <th class="py-3 px-2 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablePemasukanBody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: PENGELUARAN -->
+        <section id="sec-pengeluaran" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Input Form -->
+                <div class="bg-white dark:bg-brimo-cardDark p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80">
+                    <h3 id="formPengeluaranTitle" class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-minus text-rose-500"></i> Catat Pengeluaran
+                    </h3>
+                    <form id="formPengeluaran" onsubmit="handlePengeluaranSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="editPengeluaranId" value="">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Tanggal</label>
+                            <input type="date" id="pengTanggal" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Kategori Pengeluaran</label>
+                            <select id="pengKategori" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                                <!-- Dynamic options from settings -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Sumber Kas</label>
+                            <select id="pengJenisKas" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                                <!-- Dynamic options from settings -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nominal (Rp)</label>
+                            <input type="number" id="pengNominal" min="1" placeholder="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Keterangan / Rincian</label>
+                            <input type="text" id="pengKeterangan" placeholder="Contoh: Pembelian Perlengkapan" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <!-- Container Dynamic Custom Input Columns -->
+                        <div id="dynamicCustomInputsPengeluaran" class="space-y-4 pt-1">
+                            <!-- Custom fields rendered here -->
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" id="btnCancelPengeluaran" onclick="resetPengeluaranForm()" class="hidden flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-100 transition">Batal</button>
+                            <button type="submit" id="btnSavePengeluaran" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">Simpan Pengeluaran</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Table View -->
+                <div class="lg:col-span-2 bg-white dark:bg-brimo-cardDark p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white">Riwayat Pengeluaran</h3>
+                            <div class="text-xs text-slate-500">Total: <span id="pengTotalSummary" class="font-bold text-rose-600">Rp 0</span></div>
+                        </div>
+
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left text-xs sm:text-sm">
+                                <thead>
+                                    <tr id="pengTableHeader" class="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold uppercase tracking-wider">
+                                        <th class="py-3 px-2">Tanggal</th>
+                                        <th class="py-3 px-2">Kategori</th>
+                                        <th class="py-3 px-2">Kas</th>
+                                        <th class="py-3 px-2">Keterangan</th>
+                                        <!-- Custom Column Headers appended via JS -->
+                                        <th class="py-3 px-2 text-right">Nominal</th>
+                                        <th class="py-3 px-2 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablePengeluaranBody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: INVENTARIS / ASET -->
+        <section id="sec-aset" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Form Add/Edit Asset -->
+                <div class="bg-white dark:bg-brimo-cardDark p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80">
+                    <h3 id="formAssetTitle" class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-box text-amber-500"></i> Tambah Aset / Barang
+                    </h3>
+                    <form id="formAset" onsubmit="handleAsetSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="editAsetId" value="">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nama Barang / Aset</label>
+                            <input type="text" id="asetNama" placeholder="Contoh: Mesin Kasir POS" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Jumlah (Qty)</label>
+                            <input type="number" id="asetQty" min="1" value="1" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nilai Satuan (Rp)</label>
+                            <input type="number" id="asetNilai" min="0" placeholder="0" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Kondisi</label>
+                            <select id="asetKondisi" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                                <option value="Sangat Baik">Sangat Baik</option>
+                                <option value="Baik">Baik</option>
+                                <option value="Perlu Perbaikan">Perlu Perbaikan</option>
+                                <option value="Rusak">Rusak</option>
+                            </select>
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" id="btnCancelAset" onclick="resetAsetForm()" class="hidden flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-bold text-sm hover:bg-slate-100 transition">Batal</button>
+                            <button type="submit" id="btnSaveAset" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition">Simpan Aset</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Asset Table -->
+                <div class="lg:col-span-2 bg-white dark:bg-brimo-cardDark p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white">Daftar Inventaris Sektor</h3>
+                        <div class="text-xs text-slate-500">Estimasi Total Nilai Aset: <span id="asetTotalValue" class="font-bold text-amber-600">Rp 0</span></div>
+                    </div>
+
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-xs sm:text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold uppercase tracking-wider">
+                                    <th class="py-3 px-2">Nama Barang</th>
+                                    <th class="py-3 px-2">Qty</th>
+                                    <th class="py-3 px-2">Nilai Satuan</th>
+                                    <th class="py-3 px-2">Total Nilai</th>
+                                    <th class="py-3 px-2">Kondisi</th>
+                                    <th class="py-3 px-2 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableAsetBody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: LAPORAN & WA REKAPAN -->
+        <section id="sec-rekapan" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Generator Format Laporan WA -->
+                <div class="bg-white dark:bg-brimo-cardDark p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80">
+                    <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
+                        <i class="fa-brands fa-whatsapp text-emerald-500 text-xl"></i> Summary Laporan WhatsApp
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-4">Format ringkas otomatis untuk dikirim ke WhatsApp Manager / Owner Sektor.</p>
+
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <button onclick="generateWAReport('today')" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-semibold rounded-lg transition">Hari Ini</button>
+                            <button onclick="generateWAReport('month')" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-semibold rounded-lg transition">Bulan Ini</button>
+                            <button onclick="generateWAReport('all')" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-semibold rounded-lg transition">Semua Data</button>
+                        </div>
+
+                        <textarea id="waPreviewText" rows="12" readonly class="w-full p-3 font-mono text-xs rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none custom-scrollbar"></textarea>
+
+                        <div class="flex gap-3">
+                            <button onclick="copyWAText()" class="flex-1 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-copy"></i> Salin Teks
+                            </button>
+                            <button onclick="sendToWhatsApp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2">
+                                <i class="fa-brands fa-whatsapp text-base"></i> Kirim ke WhatsApp
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Data CSV / Excel -->
+                <div class="bg-white dark:bg-brimo-cardDark p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel text-emerald-600"></i> Ekspor Data Laporan (Excel / CSV)
+                        </h3>
+                        <p class="text-xs text-slate-500 mb-6">Unduh data pembukuan sektor dalam format file spreadsheet untuk arsip atau analisis lebih lanjut.</p>
+
+                        <div class="space-y-4">
+                            <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60">
+                                <h4 class="text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Ekspor Pemasukan & Pengeluaran</h4>
+                                <p class="text-xs text-slate-500 mb-3">Termasuk semua data transaksi dan kolom custom yang ditambahkan.</p>
+                                <button onclick="exportToCSV('transactions')" class="w-full bg-brimo-blue hover:bg-brimo-darkBlue text-white font-bold py-2 rounded-lg text-xs transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-download"></i> Unduh CSV Transaksi
+                                </button>
+                            </div>
+
+                            <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60">
+                                <h4 class="text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Ekspor Data Inventaris Aset</h4>
+                                <p class="text-xs text-slate-500 mb-3">Daftar seluruh barang inventaris sektor beserta nilai totalnya.</p>
+                                <button onclick="exportToCSV('assets')" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded-lg text-xs transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-download"></i> Unduh CSV Inventaris
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 text-[11px] text-slate-400 text-center">
+                        Sistem Informasi Keuangan Sektor - BRImo Style Framework & Supabase Cloud
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- MODAL 1: TAMBAH AKUN / SEKTOR BARU -->
+    <div id="modalAddAccount" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-brimo-cardDark rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-1">Tambah Akun Keuangan / Sektor Baru</h3>
+            <p class="text-xs text-slate-500 mb-4">Buat sektor terpisah (contoh: Kasir Lantai 2, Sektor B, dll).</p>
+
+            <form onsubmit="handleAddAccountSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nama Akun / Sektor</label>
+                    <input type="text" id="newAccountName" placeholder="Contoh: Lantai 2, Sektor B, Kasir 3" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Saldo Awal Kas Kasir (Rp)</label>
+                    <input type="number" id="newAccountInitKas" value="0" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Saldo Awal Cashless (Rp)</label>
+                    <input type="number" id="newAccountInitCashless" value="0" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeModal('modalAddAccount')" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-100 transition">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-brimo-blue hover:bg-brimo-darkBlue text-white rounded-xl text-xs font-semibold shadow-md transition">Simpan Akun</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: PENGATURAN OPSI & KOLOM CUSTOM -->
+    <div id="modalSettings" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-brimo-cardDark rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-1">Pengaturan Opsi & Kolom Custom</h3>
+            <p class="text-xs text-slate-500 mb-4">Atur daftar kategori, jenis kas, dan **tambah kolom pilihan** sesuai kebutuhan pencatatan sektor Anda.</p>
+
+            <form onsubmit="handleSaveSettings(event)" class="space-y-5">
+                <!-- Option Lists -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Pilihan Kategori Pemasukan (Pisahkan dengan koma)</label>
+                    <textarea id="settingKategoriPem" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-brimo-blue focus:outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Pilihan Kategori Pengeluaran (Pisahkan dengan koma)</label>
+                    <textarea id="settingKategoriPeng" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-brimo-blue focus:outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Pilihan Jenis Kas (Pisahkan dengan koma)</label>
+                    <textarea id="settingJenisKas" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-brimo-blue focus:outline-none"></textarea>
+                </div>
+
+                <hr class="border-slate-200 dark:border-slate-700">
+
+                <!-- Feature Tambah Kolom Custom -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-200">Kolom Tambahan Custom</label>
+                        <button type="button" onclick="addNewCustomColumnRow()" class="text-xs text-brimo-blue dark:text-blue-400 hover:underline font-semibold flex items-center gap-1">
+                            <i class="fa-solid fa-plus-circle"></i> Tambah Kolom Baru
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-3">Beri nama pilihan/kolom tambahan yang ingin dicatat di transaksi (misal: Penanggung Jawab, No. Nota, Lokasi, dsb).</p>
+
+                    <div id="customColumnsList" class="space-y-2">
+                        <!-- Custom column list items rendered by JS -->
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeModal('modalSettings')" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-100 transition">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-brimo-blue hover:bg-brimo-darkBlue text-white rounded-xl text-xs font-semibold shadow-md transition">Simpan Pengaturan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION TOAST -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-xs sm:text-sm">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toastMessage">Pesan Notifikasi</span>
+    </div>
+
+    <!-- JAVASCRIPT APP LOGIC & SUPABASE INTEGRATION -->
+    <script>
+        // Supabase Credentials
+        const SUPABASE_URL = 'https://rsxleuqxlqlszsihbrew.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzeGxldXF4bHFsc3pzaWhicmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTI1ODQsImV4cCI6MjEwODIyODU4NH0.p13W3tOoA6bhlGAY1gB-CtvXz2v1PM8YqNX5HiiSYG0';
+        
+        let supabase = null;
+        if (window.supabase) {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        const APP_STORAGE_KEY = 'sektor_keuangan_brimo_v2';
+
+        let appData = {
+            activeAccountId: 'acc_default',
+            accounts: [
+                {
+                    id: 'acc_default',
+                    name: 'Sektor Utama / Kasir 1',
+                    category: 'Utama',
+                    initKasKasir: 0,
+                    initCashless: 0
+                }
+            ],
+            settings: {
+                kategoriPemasukan: ['Penjualan Sektor', 'Pendapatan Jasa', 'Donasi/Subsidi', 'Lain-lain'],
+                kategoriPengeluaran: ['Operasional Sektor', 'Pembelian Perlengkapan', 'Gaji Staff', 'Maintenance', 'Lain-lain'],
+                jenisKas: ['Kas Kasir', 'Cashless'],
+                customColumns: [
+                    { id: 'col_1', name: 'Penanggung Jawab' }
+                ]
+            },
+            pemasukan: [],
+            pengeluaran: [],
+            aset: []
+        };
+
+        let chartInstance = null;
+
+        // Initialize App
+        window.onload = async function() {
+            loadFromLocalStorage();
+            initDefaultDates();
+            
+            // Sync with Supabase Cloud DB
+            if (supabase) {
+                await loadAllDataFromSupabase();
+            }
+
+            renderAccountSelector();
+            renderSettingsForm();
+            renderDynamicCustomInputs();
+            updateAllViews();
+        };
+
+        // --- SUPABASE CLOUD SYNC FUNCTIONS ---
+        async function loadAllDataFromSupabase() {
+            try {
+                // Fetch Accounts
+                const { data: dbAccounts } = await supabase.from('accounts').select('*');
+                if (dbAccounts && dbAccounts.length > 0) {
+                    appData.accounts = dbAccounts.map(a => ({
+                        id: a.id,
+                        name: a.name,
+                        category: a.category,
+                        initKasKasir: parseFloat(a.init_kas_kasir) || 0,
+                        initCashless: parseFloat(a.init_cashless) || 0
+                    }));
+                }
+
+                // Fetch Settings
+                const { data: dbSettings } = await supabase.from('settings').select('*').eq('id', 'global_settings').single();
+                if (dbSettings) {
+                    appData.settings = {
+                        kategoriPemasukan: dbSettings.kategori_pemasukan || appData.settings.kategoriPemasukan,
+                        kategoriPengeluaran: dbSettings.kategori_pengeluaran || appData.settings.kategoriPengeluaran,
+                        jenisKas: dbSettings.jenis_kas || appData.settings.jenisKas,
+                        customColumns: dbSettings.custom_columns || appData.settings.customColumns
+                    };
+                }
+
+                // Fetch Pemasukan
+                const { data: dbPem } = await supabase.from('pemasukan').select('*');
+                if (dbPem) {
+                    appData.pemasukan = dbPem.map(p => ({
+                        id: p.id,
+                        accountId: p.account_id,
+                        tanggal: p.tanggal,
+                        kategori: p.kategori,
+                        jenisKas: p.jenis_kas,
+                        nominal: parseFloat(p.nominal) || 0,
+                        keterangan: p.keterangan,
+                        customValues: p.custom_values || {}
+                    }));
+                }
+
+                // Fetch Pengeluaran
+                const { data: dbPeng } = await supabase.from('pengeluaran').select('*');
+                if (dbPeng) {
+                    appData.pengeluaran = dbPeng.map(p => ({
+                        id: p.id,
+                        accountId: p.account_id,
+                        tanggal: p.tanggal,
+                        kategori: p.kategori,
+                        jenisKas: p.jenis_kas,
+                        nominal: parseFloat(p.nominal) || 0,
+                        keterangan: p.keterangan,
+                        customValues: p.custom_values || {}
+                    }));
+                }
+
+                // Fetch Aset
+                const { data: dbAset } = await supabase.from('aset').select('*');
+                if (dbAset) {
+                    appData.aset = dbAset.map(a => ({
+                        id: a.id,
+                        accountId: a.account_id,
+                        nama: a.nama,
+                        qty: parseInt(a.qty) || 1,
+                        nilai: parseFloat(a.nilai) || 0,
+                        kondisi: a.kondisi
+                    }));
+                }
+
+                document.getElementById('syncIndicator').classList.remove('hidden');
+                saveToLocalStorage();
+            } catch (err) {
+                console.warn('Gagal memuat data dari Supabase, menggunakan lokal storage fallback:', err);
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem(APP_STORAGE_KEY);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    appData = { ...appData, ...parsed };
+                    if (!appData.settings.customColumns) {
+                        appData.settings.customColumns = [];
+                    }
+                } catch(e) {
+                    console.error("Error loading saved state", e);
+                }
+            }
+        }
+
+        function initDefaultDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('pemTanggal').value = today;
+            document.getElementById('pengTanggal').value = today;
+        }
+
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            const icon = document.getElementById('themeToggleBtn').querySelector('i');
+            if (isDark) {
+                icon.className = 'fa-solid fa-sun text-amber-300';
+            } else {
+                icon.className = 'fa-solid fa-moon text-amber-300';
+            }
+            if (chartInstance) renderChart();
+        }
+
+        // Navigation Tab Switching
+        function switchTab(tabName) {
+            const tabs = ['beranda', 'pemasukan', 'pengeluaran', 'aset', 'rekapan'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const sec = document.getElementById(`sec-${t}`);
+                if (t === tabName) {
+                    btn.className = 'tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 transition-all duration-200 bg-brimo-blue text-white shadow-sm';
+                    sec.classList.remove('hidden');
+                } else {
+                    btn.className = 'tab-btn flex-1 min-w-[100px] py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 transition-all duration-200 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800';
+                    sec.classList.add('hidden');
+                }
+            });
+
+            if (tabName === 'rekapan') {
+                generateWAReport('today');
+            }
+        }
+
+        // Modal Helpers
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // Toast Notification Helper
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = msg;
+            toastIcon.className = isSuccess ? 'fa-solid fa-circle-check text-emerald-400 text-lg' : 'fa-solid fa-triangle-exclamation text-rose-400 text-lg';
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Account Management
+        function renderAccountSelector() {
+            const selector = document.getElementById('accountSelector');
+            selector.innerHTML = '';
+            appData.accounts.forEach(acc => {
+                const opt = document.createElement('option');
+                opt.value = acc.id;
+                opt.textContent = acc.name;
+                if (acc.id === appData.activeAccountId) opt.selected = true;
+                selector.appendChild(opt);
+            });
+
+            const activeAcc = getCurrentAccount();
+            document.getElementById('displayAccountName').textContent = activeAcc.name;
+            document.getElementById('displayAccountCategory').textContent = activeAcc.category || 'Sektor';
+        }
+
+        function getCurrentAccount() {
+            return appData.accounts.find(a => a.id === appData.activeAccountId) || appData.accounts[0];
+        }
+
+        function changeAccount() {
+            const val = document.getElementById('accountSelector').value;
+            appData.activeAccountId = val;
+            saveToLocalStorage();
+            renderAccountSelector();
+            updateAllViews();
+            showToast('Sektor aktif berhasil diubah');
+        }
+
+        async function handleAddAccountSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('newAccountName').value.trim();
+            const kas = parseFloat(document.getElementById('newAccountInitKas').value) || 0;
+            const cashless = parseFloat(document.getElementById('newAccountInitCashless').value) || 0;
+
+            if (!name) return;
+
+            const newAcc = {
+                id: 'acc_' + Date.now(),
+                name: name,
+                category: 'Sektor',
+                initKasKasir: kas,
+                initCashless: cashless
+            };
+
+            appData.accounts.push(newAcc);
+            appData.activeAccountId = newAcc.id;
+            saveToLocalStorage();
+
+            if (supabase) {
+                await supabase.from('accounts').insert({
+                    id: newAcc.id,
+                    name: newAcc.name,
+                    category: newAcc.category,
+                    init_kas_kasir: newAcc.initKasKasir,
+                    init_cashless: newAcc.initCashless
+                });
+            }
+
+            closeModal('modalAddAccount');
+            document.getElementById('newAccountName').value = '';
+            document.getElementById('newAccountInitKas').value = '0';
+            document.getElementById('newAccountInitCashless').value = '0';
+
+            renderAccountSelector();
+            updateAllViews();
+            showToast('Akun Sektor baru berhasil disimpan');
+        }
+
+        // Settings and Dynamic Columns Logic
+        function renderSettingsForm() {
+            document.getElementById('settingKategoriPem').value = appData.settings.kategoriPemasukan.join(', ');
+            document.getElementById('settingKategoriPeng').value = appData.settings.kategoriPengeluaran.join(', ');
+            document.getElementById('settingJenisKas').value = appData.settings.jenisKas.join(', ');
+
+            populateSelectOptions('pemKategori', appData.settings.kategoriPemasukan);
+            populateSelectOptions('pengKategori', appData.settings.kategoriPengeluaran);
+            populateSelectOptions('pemJenisKas', appData.settings.jenisKas);
+            populateSelectOptions('pengJenisKas', appData.settings.jenisKas);
+
+            renderCustomColumnsSettingRows();
+        }
+
+        function populateSelectOptions(selectId, optionsArray) {
+            const sel = document.getElementById(selectId);
+            sel.innerHTML = '';
+            optionsArray.forEach(optVal => {
+                const opt = document.createElement('option');
+                opt.value = optVal.trim();
+                opt.textContent = optVal.trim();
+                sel.appendChild(opt);
+            });
+        }
+
+        function renderCustomColumnsSettingRows() {
+            const container = document.getElementById('customColumnsList');
+            container.innerHTML = '';
+
+            if (appData.settings.customColumns.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic">Belum ada kolom tambahan. Klik "Tambah Kolom Baru" di atas.</p>`;
+                return;
+            }
+
+            appData.settings.customColumns.forEach((col) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2';
+                row.innerHTML = `
+                    <input type="text" data-col-id="${col.id}" value="${col.name}" placeholder="Nama Kolom (contoh: Lokasi)" required class="custom-col-input flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                    <button type="button" onclick="removeCustomColumnRow('${col.id}')" class="text-rose-500 hover:text-rose-700 p-1.5 text-xs"><i class="fa-solid fa-trash-can"></i></button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function addNewCustomColumnRow() {
+            const newId = 'col_' + Date.now();
+            appData.settings.customColumns.push({ id: newId, name: 'Kolom Custom ' + (appData.settings.customColumns.length + 1) });
+            renderCustomColumnsSettingRows();
+        }
+
+        function removeCustomColumnRow(colId) {
+            appData.settings.customColumns = appData.settings.customColumns.filter(c => c.id !== colId);
+            renderCustomColumnsSettingRows();
+        }
+
+        async function handleSaveSettings(e) {
+            e.preventDefault();
+            const pemStr = document.getElementById('settingKategoriPem').value;
+            const pengStr = document.getElementById('settingKategoriPeng').value;
+            const kasStr = document.getElementById('settingJenisKas').value;
+
+            appData.settings.kategoriPemasukan = pemStr.split(',').map(s => s.trim()).filter(Boolean);
+            appData.settings.kategoriPengeluaran = pengStr.split(',').map(s => s.trim()).filter(Boolean);
+            appData.settings.jenisKas = kasStr.split(',').map(s => s.trim()).filter(Boolean);
+
+            const colInputs = document.querySelectorAll('.custom-col-input');
+            const updatedCols = [];
+            colInputs.forEach(inp => {
+                const cid = inp.getAttribute('data-col-id');
+                const val = inp.value.trim();
+                if (val) {
+                    updatedCols.push({ id: cid, name: val });
+                }
+            });
+            appData.settings.customColumns = updatedCols;
+
+            saveToLocalStorage();
+
+            if (supabase) {
+                await supabase.from('settings').upsert({
+                    id: 'global_settings',
+                    kategori_pemasukan: appData.settings.kategoriPemasukan,
+                    kategori_pengeluaran: appData.settings.kategoriPengeluaran,
+                    jenis_kas: appData.settings.jenisKas,
+                    custom_columns: appData.settings.customColumns,
+                    updated_at: new Date().toISOString()
+                });
+            }
+
+            renderSettingsForm();
+            renderDynamicCustomInputs();
+            updateAllViews();
+
+            closeModal('modalSettings');
+            showToast('Pengaturan opsi & kolom berhasil diperbarui');
+        }
+
+        // Render Dynamic Inputs for Forms and Tables based on Custom Columns
+        function renderDynamicCustomInputs() {
+            const pemContainer = document.getElementById('dynamicCustomInputsPemasukan');
+            const pengContainer = document.getElementById('dynamicCustomInputsPengeluaran');
+
+            pemContainer.innerHTML = '';
+            pengContainer.innerHTML = '';
+
+            appData.settings.customColumns.forEach(col => {
+                const pemDiv = document.createElement('div');
+                pemDiv.innerHTML = `
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">${col.name}</label>
+                    <input type="text" data-custom-key="${col.id}" placeholder="${col.name}" class="pem-custom-field w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                `;
+                pemContainer.appendChild(pemDiv);
+
+                const pengDiv = document.createElement('div');
+                pengDiv.innerHTML = `
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">${col.name}</label>
+                    <input type="text" data-custom-key="${col.id}" placeholder="${col.name}" class="peng-custom-field w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brimo-blue focus:outline-none">
+                `;
+                pengContainer.appendChild(pengDiv);
+            });
+
+            updateTableHeaders();
+        }
+
+        function updateTableHeaders() {
+            const pemHeader = document.getElementById('pemTableHeader');
+            const pengHeader = document.getElementById('pengTableHeader');
+
+            let customColsHtml = '';
+            appData.settings.customColumns.forEach(c => {
+                customColsHtml += `<th class="py-3 px-2">${c.name}</th>`;
+            });
+
+            pemHeader.innerHTML = `
+                <th class="py-3 px-2">Tanggal</th>
+                <th class="py-3 px-2">Kategori</th>
+                <th class="py-3 px-2">Kas</th>
+                <th class="py-3 px-2">Keterangan</th>
+                ${customColsHtml}
+                <th class="py-3 px-2 text-right">Nominal</th>
+                <th class="py-3 px-2 text-center">Aksi</th>
+            `;
+
+            pengHeader.innerHTML = `
+                <th class="py-3 px-2">Tanggal</th>
+                <th class="py-3 px-2">Kategori</th>
+                <th class="py-3 px-2">Kas</th>
+                <th class="py-3 px-2">Keterangan</th>
+                ${customColsHtml}
+                <th class="py-3 px-2 text-right">Nominal</th>
+                <th class="py-3 px-2 text-center">Aksi</th>
+            `;
+        }
+
+        // PEMASUKAN HANDLERS
+        async function handlePemasukanSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editPemasukanId').value;
+            const tanggal = document.getElementById('pemTanggal').value;
+            const kategori = document.getElementById('pemKategori').value;
+            const jenisKas = document.getElementById('pemJenisKas').value;
+            const nominal = parseFloat(document.getElementById('pemNominal').value) || 0;
+            const keterangan = document.getElementById('pemKeterangan').value;
+
+            const customValues = {};
+            document.querySelectorAll('.pem-custom-field').forEach(inp => {
+                const key = inp.getAttribute('data-custom-key');
+                customValues[key] = inp.value;
+            });
+
+            let recordObj = null;
+
+            if (editId) {
+                const idx = appData.pemasukan.findIndex(p => p.id === editId);
+                if (idx !== -1) {
+                    appData.pemasukan[idx] = {
+                        ...appData.pemasukan[idx],
+                        tanggal, kategori, jenisKas, nominal, keterangan, customValues
+                    };
+                    recordObj = appData.pemasukan[idx];
+                    showToast('Pemasukan berhasil diperbarui');
+                }
+            } else {
+                recordObj = {
+                    id: 'pem_' + Date.now(),
+                    accountId: appData.activeAccountId,
+                    tanggal, kategori, jenisKas, nominal, keterangan, customValues
+                };
+                appData.pemasukan.push(recordObj);
+                showToast('Pemasukan berhasil dicatat');
+            }
+
+            saveToLocalStorage();
+
+            if (supabase && recordObj) {
+                await supabase.from('pemasukan').upsert({
+                    id: recordObj.id,
+                    account_id: recordObj.accountId,
+                    tanggal: recordObj.tanggal,
+                    kategori: recordObj.kategori,
+                    jenis_kas: recordObj.jenisKas,
+                    nominal: recordObj.nominal,
+                    keterangan: recordObj.keterangan,
+                    custom_values: recordObj.customValues
+                });
+            }
+
+            resetPemasukanForm();
+            updateAllViews();
+        }
+
+        function editPemasukan(id) {
+            const item = appData.pemasukan.find(p => p.id === id);
+            if (!item) return;
+
+            document.getElementById('editPemasukanId').value = item.id;
+            document.getElementById('pemTanggal').value = item.tanggal;
+            document.getElementById('pemKategori').value = item.kategori;
+            document.getElementById('pemJenisKas').value = item.jenisKas;
+            document.getElementById('pemNominal').value = item.nominal;
+            document.getElementById('pemKeterangan').value = item.keterangan;
+
+            document.querySelectorAll('.pem-custom-field').forEach(inp => {
+                const key = inp.getAttribute('data-custom-key');
+                inp.value = (item.customValues && item.customValues[key]) ? item.customValues[key] : '';
+            });
+
+            document.getElementById('formPemasukanTitle').innerHTML = `<i class="fa-solid fa-pen-to-square text-amber-500"></i> Edit Pemasukan`;
+            document.getElementById('btnSavePemasukan').textContent = 'Perbarui Pemasukan';
+            document.getElementById('btnCancelPemasukan').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetPemasukanForm() {
+            document.getElementById('editPemasukanId').value = '';
+            document.getElementById('formPemasukan').reset();
+            initDefaultDates();
+            document.querySelectorAll('.pem-custom-field').forEach(inp => inp.value = '');
+
+            document.getElementById('formPemasukanTitle').innerHTML = `<i class="fa-solid fa-circle-plus text-emerald-500"></i> Catat Pemasukan`;
+            document.getElementById('btnSavePemasukan').textContent = 'Simpan Pemasukan';
+            document.getElementById('btnCancelPemasukan').classList.add('hidden');
+        }
+
+        async function deletePemasukan(id) {
+            if (confirm('Apakah Anda yakin ingin menghapus catatan pemasukan ini?')) {
+                appData.pemasukan = appData.pemasukan.filter(p => p.id !== id);
+                saveToLocalStorage();
+
+                if (supabase) {
+                    await supabase.from('pemasukan').delete().eq('id', id);
+                }
+
+                updateAllViews();
+                showToast('Pemasukan dihapus');
+            }
+        }
+
+        // PENGELUARAN HANDLERS
+        async function handlePengeluaranSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editPengeluaranId').value;
+            const tanggal = document.getElementById('pengTanggal').value;
+            const kategori = document.getElementById('pengKategori').value;
+            const jenisKas = document.getElementById('pengJenisKas').value;
+            const nominal = parseFloat(document.getElementById('pengNominal').value) || 0;
+            const keterangan = document.getElementById('pengKeterangan').value;
+
+            const customValues = {};
+            document.querySelectorAll('.peng-custom-field').forEach(inp => {
+                const key = inp.getAttribute('data-custom-key');
+                customValues[key] = inp.value;
+            });
+
+            let recordObj = null;
+
+            if (editId) {
+                const idx = appData.pengeluaran.findIndex(p => p.id === editId);
+                if (idx !== -1) {
+                    appData.pengeluaran[idx] = {
+                        ...appData.pengeluaran[idx],
+                        tanggal, kategori, jenisKas, nominal, keterangan, customValues
+                    };
+                    recordObj = appData.pengeluaran[idx];
+                    showToast('Pengeluaran berhasil diperbarui');
+                }
+            } else {
+                recordObj = {
+                    id: 'peng_' + Date.now(),
+                    accountId: appData.activeAccountId,
+                    tanggal, kategori, jenisKas, nominal, keterangan, customValues
+                };
+                appData.pengeluaran.push(recordObj);
+                showToast('Pengeluaran berhasil dicatat');
+            }
+
+            saveToLocalStorage();
+
+            if (supabase && recordObj) {
+                await supabase.from('pengeluaran').upsert({
+                    id: recordObj.id,
+                    account_id: recordObj.accountId,
+                    tanggal: recordObj.tanggal,
+                    kategori: recordObj.kategori,
+                    jenis_kas: recordObj.jenisKas,
+                    nominal: recordObj.nominal,
+                    keterangan: recordObj.keterangan,
+                    custom_values: recordObj.customValues
+                });
+            }
+
+            resetPengeluaranForm();
+            updateAllViews();
+        }
+
+        function editPengeluaran(id) {
+            const item = appData.pengeluaran.find(p => p.id === id);
+            if (!item) return;
+
+            document.getElementById('editPengeluaranId').value = item.id;
+            document.getElementById('pengTanggal').value = item.tanggal;
+            document.getElementById('pengKategori').value = item.kategori;
+            document.getElementById('pengJenisKas').value = item.jenisKas;
+            document.getElementById('pengNominal').value = item.nominal;
+            document.getElementById('pengKeterangan').value = item.keterangan;
+
+            document.querySelectorAll('.peng-custom-field').forEach(inp => {
+                const key = inp.getAttribute('data-custom-key');
+                inp.value = (item.customValues && item.customValues[key]) ? item.customValues[key] : '';
+            });
+
+            document.getElementById('formPengeluaranTitle').innerHTML = `<i class="fa-solid fa-pen-to-square text-amber-500"></i> Edit Pengeluaran`;
+            document.getElementById('btnSavePengeluaran').textContent = 'Perbarui Pengeluaran';
+            document.getElementById('btnCancelPengeluaran').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetPengeluaranForm() {
+            document.getElementById('editPengeluaranId').value = '';
+            document.getElementById('formPengeluaran').reset();
+            initDefaultDates();
+            document.querySelectorAll('.peng-custom-field').forEach(inp => inp.value = '');
+
+            document.getElementById('formPengeluaranTitle').innerHTML = `<i class="fa-solid fa-circle-minus text-rose-500"></i> Catat Pengeluaran`;
+            document.getElementById('btnSavePengeluaran').textContent = 'Simpan Pengeluaran';
+            document.getElementById('btnCancelPengeluaran').classList.add('hidden');
+        }
+
+        async function deletePengeluaran(id) {
+            if (confirm('Apakah Anda yakin ingin menghapus catatan pengeluaran ini?')) {
+                appData.pengeluaran = appData.pengeluaran.filter(p => p.id !== id);
+                saveToLocalStorage();
+
+                if (supabase) {
+                    await supabase.from('pengeluaran').delete().eq('id', id);
+                }
+
+                updateAllViews();
+                showToast('Pengeluaran dihapus');
+            }
+        }
+
+        // ASET / INVENTARIS HANDLERS
+        async function handleAsetSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editAsetId').value;
+            const nama = document.getElementById('asetNama').value;
+            const qty = parseInt(document.getElementById('asetQty').value) || 1;
+            const nilai = parseFloat(document.getElementById('asetNilai').value) || 0;
+            const kondisi = document.getElementById('asetKondisi').value;
+
+            let recordObj = null;
+
+            if (editId) {
+                const idx = appData.aset.findIndex(a => a.id === editId);
+                if (idx !== -1) {
+                    appData.aset[idx] = { ...appData.aset[idx], nama, qty, nilai, kondisi };
+                    recordObj = appData.aset[idx];
+                    showToast('Aset berhasil diperbarui');
+                }
+            } else {
+                recordObj = {
+                    id: 'ast_' + Date.now(),
+                    accountId: appData.activeAccountId,
+                    nama, qty, nilai, kondisi
+                };
+                appData.aset.push(recordObj);
+                showToast('Aset baru berhasil ditambahkan');
+            }
+
+            saveToLocalStorage();
+
+            if (supabase && recordObj) {
+                await supabase.from('aset').upsert({
+                    id: recordObj.id,
+                    account_id: recordObj.accountId,
+                    nama: recordObj.nama,
+                    qty: recordObj.qty,
+                    nilai: recordObj.nilai,
+                    kondisi: recordObj.kondisi
+                });
+            }
+
+            resetAsetForm();
+            updateAllViews();
+        }
+
+        function editAset(id) {
+            const item = appData.aset.find(a => a.id === id);
+            if (!item) return;
+
+            document.getElementById('editAsetId').value = item.id;
+            document.getElementById('asetNama').value = item.nama;
+            document.getElementById('asetQty').value = item.qty;
+            document.getElementById('asetNilai').value = item.nilai;
+            document.getElementById('asetKondisi').value = item.kondisi;
+
+            document.getElementById('formAssetTitle').innerHTML = `<i class="fa-solid fa-pen-to-square text-amber-500"></i> Edit Aset`;
+            document.getElementById('btnSaveAset').textContent = 'Perbarui Aset';
+            document.getElementById('btnCancelAset').classList.remove('hidden');
+        }
+
+        function resetAsetForm() {
+            document.getElementById('editAsetId').value = '';
+            document.getElementById('formAset').reset();
+
+            document.getElementById('formAssetTitle').innerHTML = `<i class="fa-solid fa-box text-amber-500"></i> Tambah Aset / Barang`;
+            document.getElementById('btnSaveAset').textContent = 'Simpan Aset';
+            document.getElementById('btnCancelAset').classList.add('hidden');
+        }
+
+        async function deleteAset(id) {
+            if (confirm('Hapus aset ini dari daftar inventaris?')) {
+                appData.aset = appData.aset.filter(a => a.id !== id);
+                saveToLocalStorage();
+
+                if (supabase) {
+                    await supabase.from('aset').delete().eq('id', id);
+                }
+
+                updateAllViews();
+                showToast('Aset dihapus');
+            }
+        }
+
+        // UPDATE ALL VIEWS & CALCULATIONS
+        function updateAllViews() {
+            const currAcc = getCurrentAccount();
+            const currAccId = currAcc.id;
+
+            const accountPemasukan = appData.pemasukan.filter(p => p.accountId === currAccId);
+            const accountPengeluaran = appData.pengeluaran.filter(p => p.accountId === currAccId);
+            const accountAset = appData.aset.filter(a => a.accountId === currAccId);
+
+            let totalOmzet = 0;
+            let totalPengeluaran = 0;
+            let kasKasirBalance = currAcc.initKasKasir || 0;
+            let cashlessBalance = currAcc.initCashless || 0;
+
+            accountPemasukan.forEach(p => {
+                totalOmzet += p.nominal;
+                if (p.jenisKas && p.jenisKas.toLowerCase().includes('cashless')) {
+                    cashlessBalance += p.nominal;
+                } else {
+                    kasKasirBalance += p.nominal;
+                }
+            });
+
+            accountPengeluaran.forEach(p => {
+                totalPengeluaran += p.nominal;
+                if (p.jenisKas && p.jenisKas.toLowerCase().includes('cashless')) {
+                    cashlessBalance -= p.nominal;
+                } else {
+                    kasKasirBalance -= p.nominal;
+                }
+            });
+
+            const profit = totalOmzet - totalPengeluaran;
+            const totalSaldoAvailable = kasKasirBalance + cashlessBalance;
+
+            document.getElementById('dashTotalSaldo').textContent = formatRupiah(totalSaldoAvailable);
+            document.getElementById('dashOmzet').textContent = formatRupiah(totalOmzet);
+            document.getElementById('dashPengeluaran').textContent = formatRupiah(totalPengeluaran);
+            document.getElementById('dashProfit').textContent = formatRupiah(profit);
+            document.getElementById('dashKasKasir').textContent = formatRupiah(kasKasirBalance);
+            document.getElementById('dashCashless').textContent = formatRupiah(cashlessBalance);
+
+            document.getElementById('pemTotalSummary').textContent = formatRupiah(totalOmzet);
+            document.getElementById('pengTotalSummary').textContent = formatRupiah(totalPengeluaran);
+
+            renderTablePemasukan(accountPemasukan);
+            renderTablePengeluaran(accountPengeluaran);
+            renderTableAset(accountAset);
+
+            renderDashRecent(accountPemasukan, accountPengeluaran);
+            renderChart(accountPemasukan, accountPengeluaran);
+        }
+
+        function formatRupiah(num) {
+            return 'Rp ' + num.toLocaleString('id-ID');
+        }
+
+        // Render Tables Implementation
+        function renderTablePemasukan(dataList) {
+            const tbody = document.getElementById('tablePemasukanBody');
+            tbody.innerHTML = '';
+
+            if (dataList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="py-4 text-center text-slate-400 italic">Belum ada data pemasukan.</td></tr>`;
+                return;
+            }
+
+            const sorted = [...dataList].sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal));
+
+            sorted.forEach(item => {
+                let customColsTd = '';
+                appData.settings.customColumns.forEach(c => {
+                    const val = (item.customValues && item.customValues[c.id]) ? item.customValues[c.id] : '-';
+                    customColsTd += `<td class="py-3 px-2 text-slate-600 dark:text-slate-300">${val}</td>`;
+                });
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition';
+                tr.innerHTML = `
+                    <td class="py-3 px-2 font-medium text-slate-700 dark:text-slate-200">${item.tanggal}</td>
+                    <td class="py-3 px-2"><span class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded text-[11px] font-semibold">${item.kategori}</span></td>
+                    <td class="py-3 px-2 text-slate-600 dark:text-slate-300">${item.jenisKas}</td>
+                    <td class="py-3 px-2 text-slate-700 dark:text-slate-200">${item.keterangan}</td>
+                    ${customColsTd}
+                    <td class="py-3 px-2 text-right font-bold text-emerald-600 dark:text-emerald-400">+${formatRupiah(item.nominal)}</td>
+                    <td class="py-3 px-2 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="editPemasukan('${item.id}')" title="Edit Pemasukan" class="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded transition">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deletePemasukan('${item.id}')" title="Hapus Pemasukan" class="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded transition">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTablePengeluaran(dataList) {
+            const tbody = document.getElementById('tablePengeluaranBody');
+            tbody.innerHTML = '';
+
+            if (dataList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="py-4 text-center text-slate-400 italic">Belum ada data pengeluaran.</td></tr>`;
+                return;
+            }
+
+            const sorted = [...dataList].sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal));
+
+            sorted.forEach(item => {
+                let customColsTd = '';
+                appData.settings.customColumns.forEach(c => {
+                    const val = (item.customValues && item.customValues[c.id]) ? item.customValues[c.id] : '-';
+                    customColsTd += `<td class="py-3 px-2 text-slate-600 dark:text-slate-300">${val}</td>`;
+                });
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition';
+                tr.innerHTML = `
+                    <td class="py-3 px-2 font-medium text-slate-700 dark:text-slate-200">${item.tanggal}</td>
+                    <td class="py-3 px-2"><span class="bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 px-2 py-0.5 rounded text-[11px] font-semibold">${item.kategori}</span></td>
+                    <td class="py-3 px-2 text-slate-600 dark:text-slate-300">${item.jenisKas}</td>
+                    <td class="py-3 px-2 text-slate-700 dark:text-slate-200">${item.keterangan}</td>
+                    ${customColsTd}
+                    <td class="py-3 px-2 text-right font-bold text-rose-600 dark:text-rose-400">-${formatRupiah(item.nominal)}</td>
+                    <td class="py-3 px-2 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="editPengeluaran('${item.id}')" title="Edit Pengeluaran" class="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded transition">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deletePengeluaran('${item.id}')" title="Hapus Pengeluaran" class="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded transition">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTableAset(dataList) {
+            const tbody = document.getElementById('tableAsetBody');
+            tbody.innerHTML = '';
+
+            let grandTotal = 0;
+
+            if (dataList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-slate-400 italic">Belum ada data inventaris aset.</td></tr>`;
+                document.getElementById('asetTotalValue').textContent = 'Rp 0';
+                return;
+            }
+
+            dataList.forEach(item => {
+                const totalNilai = item.qty * item.nilai;
+                grandTotal += totalNilai;
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition';
+                tr.innerHTML = `
+                    <td class="py-3 px-2 font-medium text-slate-700 dark:text-slate-200">${item.nama}</td>
+                    <td class="py-3 px-2 text-slate-600 dark:text-slate-300">${item.qty}</td>
+                    <td class="py-3 px-2 text-slate-600 dark:text-slate-300">${formatRupiah(item.nilai)}</td>
+                    <td class="py-3 px-2 font-bold text-amber-600 dark:text-amber-400">${formatRupiah(totalNilai)}</td>
+                    <td class="py-3 px-2"><span class="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded text-[11px] font-semibold">${item.kondisi}</span></td>
+                    <td class="py-3 px-2 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="editAset('${item.id}')" title="Edit Aset" class="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded transition">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deleteAset('${item.id}')" title="Hapus Aset" class="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded transition">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('asetTotalValue').textContent = formatRupiah(grandTotal);
+        }
+
+        function renderDashRecent(pemList, pengList) {
+            const container = document.getElementById('dashRecentTransactions');
+            container.innerHTML = '';
+
+            const combined = [
+                ...pemList.map(p => ({ ...p, type: 'in' })),
+                ...pengList.map(p => ({ ...p, type: 'out' }))
+            ].sort((a,b) => new Date(b.tanggal) - new Date(a.tanggal));
+
+            document.getElementById('dashTotalTxCount').textContent = `${combined.length} Transaksi`;
+
+            if (combined.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic">Belum ada transaksi di sektor ini.</p>`;
+                return;
+            }
+
+            combined.slice(0, 5).forEach(tx => {
+                const isIn = tx.type === 'in';
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800';
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-7 h-7 rounded-lg ${isIn ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} flex items-center justify-center text-xs font-bold">
+                            <i class="fa-solid ${isIn ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-1">${tx.keterangan}</p>
+                            <p class="text-[10px] text-slate-400">${tx.tanggal} • ${tx.kategori}</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-extrabold ${isIn ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                        ${isIn ? '+' : '-'}${formatRupiah(tx.nominal)}
+                    </span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Render Chart.js Analytics
+        function renderChart(pemList, pengList) {
+            const ctx = document.getElementById('financeChart');
+            if (!ctx) return;
+
+            const currAccId = appData.activeAccountId;
+            const pem = pemList || appData.pemasukan.filter(p => p.accountId === currAccId);
+            const peng = pengList || appData.pengeluaran.filter(p => p.accountId === currAccId);
+
+            const datesMap = {};
+            pem.forEach(p => {
+                if (!datesMap[p.tanggal]) datesMap[p.tanggal] = { in: 0, out: 0 };
+                datesMap[p.tanggal].in += p.nominal;
+            });
+            peng.forEach(p => {
+                if (!datesMap[p.tanggal]) datesMap[p.tanggal] = { in: 0, out: 0 };
+                datesMap[p.tanggal].out += p.nominal;
+            });
+
+            const sortedDates = Object.keys(datesMap).sort();
+            const labels = sortedDates.length > 0 ? sortedDates : ['Tidak Ada Data'];
+            const inData = sortedDates.map(d => datesMap[d].in);
+            const outData = sortedDates.map(d => datesMap[d].out);
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#cbd5e1' : '#475569';
+            const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Pemasukan (Omzet)',
+                            data: inData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Pengeluaran',
+                            data: outData,
+                            borderColor: '#f43f5e',
+                            backgroundColor: 'rgba(244, 63, 94, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: textColor, font: { family: 'Plus Jakarta Sans', size: 11 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: textColor, font: { size: 10 } },
+                            grid: { color: gridColor }
+                        },
+                        y: {
+                            ticks: { color: textColor, font: { size: 10 } },
+                            grid: { color: gridColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        // WhatsApp Summary Generator
+        function generateWAReport(range = 'today') {
+            const currAcc = getCurrentAccount();
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            let pemFiltered = appData.pemasukan.filter(p => p.accountId === currAcc.id);
+            let pengFiltered = appData.pengeluaran.filter(p => p.accountId === currAcc.id);
+
+            if (range === 'today') {
+                pemFiltered = pemFiltered.filter(p => p.tanggal === todayStr);
+                pengFiltered = pengFiltered.filter(p => p.tanggal === todayStr);
+            } else if (range === 'month') {
+                const currentMonth = todayStr.substring(0, 7);
+                pemFiltered = pemFiltered.filter(p => p.tanggal.startsWith(currentMonth));
+                pengFiltered = pengFiltered.filter(p => p.tanggal.startsWith(currentMonth));
+            }
+
+            let omzet = pemFiltered.reduce((sum, p) => sum + p.nominal, 0);
+            let pengeluaran = pengFiltered.reduce((sum, p) => sum + p.nominal, 0);
+            let profit = omzet - pengeluaran;
+
+            let text = `*LAPORAN KEUANGAN SEKTOR*\n`;
+            text += `--------------------------------------\n`;
+            text += `🏢 *Sektor:* ${currAcc.name}\n`;
+            text += `📅 *Periode:* ${range === 'today' ? 'Hari ini (' + todayStr + ')' : range === 'month' ? 'Bulan Ini' : 'Semua Data'}\n\n`;
+
+            text += `📈 *Omzet (Pemasukan):* ${formatRupiah(omzet)}\n`;
+            text += `📉 *Total Pengeluaran:* ${formatRupiah(pengeluaran)}\n`;
+            text += `💰 *Profit Netto:* ${formatRupiah(profit)}\n`;
+            text += `--------------------------------------\n`;
+
+            text += `*RINCIAN PEMASUKAN (${pemFiltered.length}):*\n`;
+            if (pemFiltered.length === 0) text += `- (Tidak ada transaksi)\n`;
+            pemFiltered.forEach((p, idx) => {
+                let customInfo = '';
+                if (p.customValues) {
+                    Object.keys(p.customValues).forEach(k => {
+                        const colObj = appData.settings.customColumns.find(c => c.id === k);
+                        if (colObj && p.customValues[k]) customInfo += ` [${colObj.name}: ${p.customValues[k]}]`;
+                    });
+                }
+                text += `${idx + 1}. ${p.keterangan} (${p.kategori}) - ${formatRupiah(p.nominal)}${customInfo}\n`;
+            });
+
+            text += `\n*RINCIAN PENGELUARAN (${pengFiltered.length}):*\n`;
+            if (pengFiltered.length === 0) text += `- (Tidak ada transaksi)\n`;
+            pengFiltered.forEach((p, idx) => {
+                let customInfo = '';
+                if (p.customValues) {
+                    Object.keys(p.customValues).forEach(k => {
+                        const colObj = appData.settings.customColumns.find(c => c.id === k);
+                        if (colObj && p.customValues[k]) customInfo += ` [${colObj.name}: ${p.customValues[k]}]`;
+                    });
+                }
+                text += `${idx + 1}. ${p.keterangan} (${p.kategori}) - ${formatRupiah(p.nominal)}${customInfo}\n`;
+            });
+
+            text += `\n_Dibuat otomatis via Sistem Keuangan Sektor BRImo Style_`;
+
+            document.getElementById('waPreviewText').value = text;
+        }
+
+        function copyWAText() {
+            const txt = document.getElementById('waPreviewText');
+            txt.select();
+            document.execCommand('copy');
+            showToast('Teks laporan berhasil disalin ke clipboard');
+        }
+
+        function sendToWhatsApp() {
+            const text = encodeURIComponent(document.getElementById('waPreviewText').value);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+
+        // EXPORT TO CSV / EXCEL
+        function exportToCSV(type = 'transactions') {
+            const currAcc = getCurrentAccount();
+            let csvContent = "data:text/csv;charset=utf-8,";
+
+            if (type === 'transactions') {
+                const customHeaders = appData.settings.customColumns.map(c => `"${c.name}"`).join(',');
+                csvContent += `"Tipe","ID Sektor","Tanggal","Kategori","Jenis Kas","Keterangan",${customHeaders ? customHeaders + ',' : ''}"Nominal"\n`;
+
+                const pemList = appData.pemasukan.filter(p => p.accountId === currAcc.id);
+                const pengList = appData.pengeluaran.filter(p => p.accountId === currAcc.id);
+
+                pemList.forEach(p => {
+                    const customVals = appData.settings.customColumns.map(c => `"${(p.customValues && p.customValues[c.id]) ? p.customValues[c.id] : ''}"`).join(',');
+                    csvContent += `"PEMASUKAN","${currAcc.name}","${p.tanggal}","${p.kategori}","${p.jenisKas}","${p.keterangan}",${customVals ? customVals + ',' : ''}${p.nominal}\n`;
+                });
+
+                pengList.forEach(p => {
+                    const customVals = appData.settings.customColumns.map(c => `"${(p.customValues && p.customValues[c.id]) ? p.customValues[c.id] : ''}"`).join(',');
+                    csvContent += `"PENGELUARAN","${currAcc.name}","${p.tanggal}","${p.kategori}","${p.jenisKas}","${p.keterangan}",${customVals ? customVals + ',' : ''}${p.nominal}\n`;
+                });
+
+            } else if (type === 'assets') {
+                csvContent += `"Nama Barang","Qty","Nilai Satuan","Total Nilai","Kondisi"\n`;
+                const asetList = appData.aset.filter(a => a.accountId === currAcc.id);
+                asetList.forEach(a => {
+                    csvContent += `"${a.nama}",${a.qty},${a.nilai},${a.qty * a.nilai},"${a.kondisi}"\n`;
+                });
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Laporan_${type}_${currAcc.name.replace(/\s+/g, '_')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('File CSV Laporan berhasil diunduh');
+        }
+    </script>
+</body>
+</html>
