@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Keuangan Sektor - DCC</title>
+    <!-- Favicon menggunakan logo store.png sesuai lampiran repository -->
+    <link rel="icon" type="image/png" href="logo store.png">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -51,16 +53,38 @@
             background: rgba(0,82,156,0.3);
             border-radius: 10px;
         }
+        /* Animasi Transisi Elegan Antar Halaman */
+        .page-section {
+            animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        /* Efek Interaktif Hover pada Kartu & Tombol */
+        .interactive-card {
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .interactive-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(0, 82, 156, 0.15);
+        }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-200">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-300">
 
     <!-- LOGIN SCREEN (HANYA PASSWORD "dcc2026") -->
     <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-bri-gradient p-4">
-        <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 md:p-8 relative overflow-hidden">
+        <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 md:p-8 relative overflow-hidden transform transition-all duration-500 scale-100">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-xl"></div>
             <div class="text-center mb-8 relative z-10">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-2xl mb-3 text-bri-blue dark:text-blue-400 shadow-inner">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-2xl mb-3 text-bri-blue dark:text-blue-400 shadow-inner animate-bounce">
                     <i class="fa-solid fa-user-tie text-3xl"></i>
                 </div>
                 <h2 class="text-2xl font-extrabold text-gray-900 dark:text-white">Bendahara DCC</h2>
@@ -73,7 +97,7 @@
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400"><i class="fa-solid fa-key text-sm"></i></span>
                         <input type="password" id="password" required placeholder="Masukkan password" class="w-full pl-10 pr-4 py-3.5 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-bri-blue outline-none transition font-bold tracking-wider">
                     </div>
-                    <p id="loginError" class="text-[11px] text-red-500 font-semibold mt-1.5 hidden flex items-center gap-1">
+                    <p id="loginError" class="text-[11px] text-red-500 font-semibold mt-1.5 hidden flex items-center gap-1 animate-pulse">
                         <i class="fa-solid fa-circle-exclamation"></i> Password salah! Silakan coba lagi.
                     </p>
                 </div>
@@ -82,7 +106,7 @@
                     <i class="fa-solid fa-arrow-right text-xs"></i>
                 </button>
             </form>
-            <p class="text-center text-[11px] text-gray-400 mt-6">Akses Khusus Bendahara</p>
+            <p class="text-center text-[11px] text-gray-400 mt-6">Akses Khusus Bendahara • DCC System</p>
         </div>
     </div>
 
@@ -90,10 +114,10 @@
     <div id="mainApp" class="hidden min-h-screen flex flex-col max-w-md md:max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-2xl relative">
         
         <!-- HEADER TOP BAR BRImo -->
-        <header class="bg-bri-gradient text-white p-4 sticky top-0 z-30 rounded-b-2xl shadow-md">
+        <header class="bg-bri-gradient text-white p-4 sticky top-0 z-30 rounded-b-2xl shadow-md transition-all">
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg border border-white/30 text-amber-300">
+                    <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg border border-white/30 text-amber-300 shadow">
                         <i class="fa-solid fa-user-shield text-base"></i>
                     </div>
                     <div>
@@ -103,18 +127,18 @@
                 </div>
                 <div class="flex items-center space-x-2">
                     <!-- Dark/Light Theme Switcher -->
-                    <button onclick="toggleDarkMode()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition" title="Ganti Tema">
+                    <button onclick="toggleDarkMode()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition transform active:scale-90" title="Ganti Tema">
                         <i id="themeIcon" class="fa-solid fa-moon text-sm"></i>
                     </button>
                     <!-- Logout -->
-                    <button onclick="handleLogout()" class="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-200 flex items-center justify-center transition" title="Keluar">
+                    <button onclick="handleLogout()" class="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-200 flex items-center justify-center transition transform active:scale-90" title="Keluar">
                         <i class="fa-solid fa-right-from-bracket text-sm"></i>
                     </button>
                 </div>
             </div>
 
             <!-- AKUN KEUANGAN CONTROLLER & SWITCHER -->
-            <div class="bg-white/10 backdrop-blur-md p-2.5 rounded-2xl border border-white/15 flex items-center justify-between">
+            <div class="bg-white/10 backdrop-blur-md p-2.5 rounded-2xl border border-white/15 flex items-center justify-between shadow-inner">
                 <div class="flex items-center space-x-2.5 overflow-hidden">
                     <div class="w-8 h-8 rounded-xl bg-bri-orange/20 flex items-center justify-center text-bri-orange">
                         <i class="fa-solid fa-building-columns text-sm"></i>
@@ -126,7 +150,7 @@
                         </select>
                     </div>
                 </div>
-                <button onclick="openModal('addAccountModal')" class="px-3 py-1.5 bg-bri-orange hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition shrink-0">
+                <button onclick="openModal('addAccountModal')" class="px-3 py-1.5 bg-bri-orange hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md transition transform active:scale-95 shrink-0">
                     <i class="fa-solid fa-plus text-[10px]"></i>
                     <span>Tambah Akun</span>
                 </button>
@@ -137,13 +161,13 @@
         <main class="flex-1 p-4 overflow-y-auto space-y-5 pb-32">
             
             <!-- 1. LAMAN BERANDA (DASHBOARD) -->
-            <section id="page-beranda" class="space-y-5">
+            <section id="page-beranda" class="page-section space-y-5">
                 <!-- BRImo Saldo Card -->
-                <div class="bg-bri-card rounded-3xl p-5 text-white shadow-xl relative overflow-hidden">
+                <div class="bg-bri-card rounded-3xl p-5 text-white shadow-xl relative overflow-hidden interactive-card">
                     <div class="absolute -right-8 -bottom-8 w-36 h-36 bg-white/10 rounded-full blur-2xl"></div>
                     <div class="flex justify-between items-start mb-2 relative z-10">
                         <span class="text-xs text-blue-200 font-medium tracking-wide">Total Saldo Kas Akun Aktif</span>
-                        <button onclick="toggleBalanceVisibility()" class="text-blue-200 hover:text-white transition">
+                        <button onclick="toggleBalanceVisibility()" class="text-blue-200 hover:text-white transition transform active:scale-90">
                             <i id="eyeIcon" class="fa-solid fa-eye text-xs"></i>
                         </button>
                     </div>
@@ -168,7 +192,7 @@
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Ringkasan Keuangan Sektor</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <!-- 1. TOTAL OMZET -->
-                        <div class="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-blue-100 dark:border-gray-600 shadow-sm flex items-center space-x-3">
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-blue-100 dark:border-gray-600 shadow-sm flex items-center space-x-3 interactive-card">
                             <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 text-base shadow-sm">
                                 <i class="fa-solid fa-chart-simple"></i>
                             </div>
@@ -179,7 +203,7 @@
                         </div>
 
                         <!-- 2. TOTAL PROFIT (LABA BERSIH) -->
-                        <div class="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-green-100 dark:border-gray-600 shadow-sm flex items-center space-x-3">
+                        <div class="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-green-100 dark:border-gray-600 shadow-sm flex items-center space-x-3 interactive-card">
                             <div class="w-10 h-10 rounded-xl bg-green-600 text-white flex items-center justify-center shrink-0 text-base shadow-sm">
                                 <i class="fa-solid fa-sack-dollar"></i>
                             </div>
@@ -190,7 +214,7 @@
                         </div>
 
                         <!-- 3. TOTAL ASET -->
-                        <div class="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-amber-100 dark:border-gray-600 shadow-sm flex items-center space-x-3">
+                        <div class="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-amber-100 dark:border-gray-600 shadow-sm flex items-center space-x-3 interactive-card">
                             <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 text-base shadow-sm">
                                 <i class="fa-solid fa-boxes-stacked"></i>
                             </div>
@@ -206,26 +230,26 @@
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Pintasan Cepat</h3>
                     <div class="grid grid-cols-4 gap-3 text-center">
-                        <button onclick="navigateTo('pemasukan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition flex flex-col items-center group">
-                            <div class="w-11 h-11 rounded-2xl bg-green-500 text-white flex items-center justify-center mb-1 shadow-md shadow-green-500/20 group-hover:scale-105 transition">
+                        <button onclick="navigateTo('pemasukan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
+                            <div class="w-11 h-11 rounded-2xl bg-green-500 text-white flex items-center justify-center mb-1 shadow-md shadow-green-500/20 group-hover:scale-110 transition">
                                 <i class="fa-solid fa-circle-arrow-down text-lg"></i>
                             </div>
                             <span class="text-[11px] font-bold">Pemasukan</span>
                         </button>
-                        <button onclick="navigateTo('pengeluaran')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition flex flex-col items-center group">
-                            <div class="w-11 h-11 rounded-2xl bg-red-500 text-white flex items-center justify-center mb-1 shadow-md shadow-red-500/20 group-hover:scale-105 transition">
+                        <button onclick="navigateTo('pengeluaran')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
+                            <div class="w-11 h-11 rounded-2xl bg-red-500 text-white flex items-center justify-center mb-1 shadow-md shadow-red-500/20 group-hover:scale-110 transition">
                                 <i class="fa-solid fa-circle-arrow-up text-lg"></i>
                             </div>
                             <span class="text-[11px] font-bold">Pengeluaran</span>
                         </button>
-                        <button onclick="navigateTo('laporan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition flex flex-col items-center group">
-                            <div class="w-11 h-11 rounded-2xl bg-bri-orange text-white flex items-center justify-center mb-1 shadow-md shadow-orange-500/20 group-hover:scale-105 transition">
+                        <button onclick="navigateTo('laporan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
+                            <div class="w-11 h-11 rounded-2xl bg-bri-orange text-white flex items-center justify-center mb-1 shadow-md shadow-orange-500/20 group-hover:scale-110 transition">
                                 <i class="fa-solid fa-file-invoice-dollar text-lg"></i>
                             </div>
                             <span class="text-[11px] font-bold">Lapor WA</span>
                         </button>
-                        <button onclick="navigateTo('rekapan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition flex flex-col items-center group">
-                            <div class="w-11 h-11 rounded-2xl bg-bri-blue text-white flex items-center justify-center mb-1 shadow-md shadow-blue-500/20 group-hover:scale-105 transition">
+                        <button onclick="navigateTo('rekapan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
+                            <div class="w-11 h-11 rounded-2xl bg-bri-blue text-white flex items-center justify-center mb-1 shadow-md shadow-blue-500/20 group-hover:scale-110 transition">
                                 <i class="fa-solid fa-chart-line text-lg"></i>
                             </div>
                             <span class="text-[11px] font-bold">Analytics</span>
@@ -246,7 +270,7 @@
             </section>
 
             <!-- 2. LAMAN PEMASUKAN TERPISAH -->
-            <section id="page-pemasukan" class="hidden space-y-4">
+            <section id="page-pemasukan" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
                         <h2 class="text-lg font-bold text-green-600 dark:text-green-400 flex items-center gap-2">
@@ -254,7 +278,7 @@
                         </h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Pencatatan harian uang masuk sektor</p>
                     </div>
-                    <button onclick="openCustomOptionModal('in')" class="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded-xl hover:bg-green-100 transition flex items-center space-x-1 border border-green-200 dark:border-green-800">
+                    <button onclick="openCustomOptionModal('in')" class="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded-xl hover:bg-green-100 transition transform active:scale-95 flex items-center space-x-1 border border-green-200 dark:border-green-800 shadow-sm">
                         <i class="fa-solid fa-sliders"></i>
                         <span>Opsi Pemasukan</span>
                     </button>
@@ -266,34 +290,34 @@
                     <form onsubmit="saveTransaction(event, 'in')" class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">TANGGAL</label>
-                            <input type="date" id="inDate" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <input type="date" id="inDate" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition">
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">KETERANGAN / URAIAN</label>
-                            <input type="text" id="inDesc" placeholder="Misal: Penjualan Produk / Layanan" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <input type="text" id="inDesc" placeholder="Misal: Penjualan Produk / Layanan" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition">
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">JUMLAH (QTY)</label>
-                            <input type="number" id="inQty" value="1" min="1" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <input type="number" id="inQty" value="1" min="1" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition">
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">JENIS PEMASUKAN</label>
-                            <select id="inCategory" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <select id="inCategory" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition">
                                 <!-- Dynamic Options -->
                             </select>
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">KAS ASAL</label>
-                            <select id="inCashType" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <select id="inCashType" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition">
                                 <!-- Dynamic Options -->
                             </select>
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">NOMINAL SATUAN (RP)</label>
-                            <input type="number" id="inAmount" placeholder="0" required min="1" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-bold">
+                            <input type="number" id="inAmount" placeholder="0" required min="1" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition font-bold">
                         </div>
                         <div class="md:col-span-2">
-                            <button type="submit" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl shadow transition">
+                            <button type="submit" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl shadow-md transition transform active:scale-95">
                                 Simpan Pemasukan
                             </button>
                         </div>
@@ -324,7 +348,7 @@
             </section>
 
             <!-- 3. LAMAN PENGELUARAN TERPISAH -->
-            <section id="page-pengeluaran" class="hidden space-y-4">
+            <section id="page-pengeluaran" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
                         <h2 class="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
@@ -332,7 +356,7 @@
                         </h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Pencatatan harian uang keluar sektor</p>
                     </div>
-                    <button onclick="openCustomOptionModal('out')" class="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold rounded-xl hover:bg-red-100 transition flex items-center space-x-1 border border-red-200 dark:border-red-800">
+                    <button onclick="openCustomOptionModal('out')" class="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold rounded-xl hover:bg-red-100 transition transform active:scale-95 flex items-center space-x-1 border border-red-200 dark:border-red-800 shadow-sm">
                         <i class="fa-solid fa-sliders"></i>
                         <span>Opsi Pengeluaran</span>
                     </button>
@@ -344,34 +368,34 @@
                     <form onsubmit="saveTransaction(event, 'out')" class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">TANGGAL</label>
-                            <input type="date" id="outDate" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <input type="date" id="outDate" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition">
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">KETERANGAN / URAIAN</label>
-                            <input type="text" id="outDesc" placeholder="Misal: Operasional / Belanja Stok" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <input type="text" id="outDesc" placeholder="Misal: Operasional / Belanja Stok" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition">
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">JUMLAH (QTY)</label>
-                            <input type="number" id="outQty" value="1" min="1" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <input type="number" id="outQty" value="1" min="1" required class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition">
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">JENIS PENGELUARAN</label>
-                            <select id="outCategory" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <select id="outCategory" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition">
                                 <!-- Dynamic Options -->
                             </select>
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">KAS ASAL</label>
-                            <select id="outCashType" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <select id="outCashType" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition">
                                 <!-- Dynamic Options -->
                             </select>
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">NOMINAL SATUAN (RP)</label>
-                            <input type="number" id="outAmount" placeholder="0" required min="1" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-bold">
+                            <input type="number" id="outAmount" placeholder="0" required min="1" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition font-bold">
                         </div>
                         <div class="md:col-span-2">
-                            <button type="submit" class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow transition">
+                            <button type="submit" class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition transform active:scale-95">
                                 Simpan Pengeluaran
                             </button>
                         </div>
@@ -402,13 +426,13 @@
             </section>
 
             <!-- 4. LAMAN REKAPAN (ANALYTICS & DIAGRAM) -->
-            <section id="page-rekapan" class="hidden space-y-4">
+            <section id="page-rekapan" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
                         <h2 class="text-lg font-bold">Rekapan Analytics Keuangan</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Diagram Omzet, Profit & Laba Kotor</p>
                     </div>
-                    <select id="chartPeriod" onchange="updateChartData()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold">
+                    <select id="chartPeriod" onchange="updateChartData()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
                         <option value="7">7 Hari Terakhir</option>
                         <option value="30">30 Hari Terakhir</option>
                         <option value="365">1 Tahun</option>
@@ -416,8 +440,8 @@
                 </div>
 
                 <!-- Indikator Alert Penurunan / Warning -->
-                <div id="insightAlert" class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 flex items-start space-x-3 text-xs">
-                    <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 text-base mt-0.5"></i>
+                <div id="insightAlert" class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 flex items-start space-x-3 text-xs shadow-sm">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 text-base mt-0.5 animate-bounce"></i>
                     <div>
                         <h4 class="font-bold text-amber-800 dark:text-amber-300">Indikator Performa Otomatis</h4>
                         <p id="insightText" class="text-amber-700 dark:text-amber-200 mt-0.5">Menganalisis alur kas sektor...</p>
@@ -425,21 +449,21 @@
                 </div>
 
                 <!-- Line Chart Container -->
-                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
                     <canvas id="financialChart" class="w-full h-64"></canvas>
                 </div>
 
                 <!-- Dynamic Metrics -->
                 <div class="grid grid-cols-3 gap-2">
-                    <div class="bg-blue-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center">
+                    <div class="bg-blue-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
                         <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">OMZET KOTOR</span>
                         <span class="text-xs font-black text-bri-blue dark:text-blue-400" id="chartOmzet">Rp 0</span>
                     </div>
-                    <div class="bg-green-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center">
+                    <div class="bg-green-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
                         <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">LABA BERSIH/PROFIT</span>
                         <span class="text-xs font-black text-green-600 dark:text-green-400" id="chartProfit">Rp 0</span>
                     </div>
-                    <div class="bg-red-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center">
+                    <div class="bg-red-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
                         <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">PENGELUARAN</span>
                         <span class="text-xs font-black text-red-600 dark:text-red-400" id="chartExpense">Rp 0</span>
                     </div>
@@ -447,33 +471,33 @@
             </section>
 
             <!-- 5. LAMAN ASET -->
-            <section id="page-aset" class="hidden space-y-4">
+            <section id="page-aset" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h2 class="text-lg font-bold">Kalkulasi Aset Sektor</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Pencatatan & Inventarisasi Aset</p>
                     </div>
-                    <button onclick="openModal('addAssetModal')" class="px-3 py-2 bg-bri-blue hover:bg-bri-darkblue text-white rounded-xl text-xs font-bold flex items-center space-x-1 shadow transition">
+                    <button onclick="openModal('addAssetModal')" class="px-3 py-2 bg-bri-blue hover:bg-bri-darkblue text-white rounded-xl text-xs font-bold flex items-center space-x-1 shadow-md transition transform active:scale-95">
                         <i class="fa-solid fa-plus text-xs"></i>
                         <span>Pengadaan Aset Baru</span>
                     </button>
                 </div>
 
                 <!-- Total Asset Banner (Mencolok di Kiri Atas) -->
-                <div class="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-4 rounded-2xl shadow-lg flex justify-between items-center">
+                <div class="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-4 rounded-2xl shadow-lg flex justify-between items-center interactive-card">
                     <div>
                         <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nominal Aset Keseluruhan</span>
                         <div class="text-2xl font-black text-amber-400 mt-0.5" id="totalAssetValue">Rp 0</div>
                         <span class="text-[10px] text-slate-400">*Akumulasi Aset Tetap + Berjalan</span>
                     </div>
-                    <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-amber-400 text-xl border border-white/10">
+                    <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-amber-400 text-xl border border-white/10 shadow-inner">
                         <i class="fa-solid fa-boxes-stacked"></i>
                     </div>
                 </div>
 
                 <!-- Filter Asset -->
                 <div class="flex gap-2">
-                    <select id="assetFilterType" onchange="renderAssetTable()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-semibold">
+                    <select id="assetFilterType" onchange="renderAssetTable()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-semibold shadow-sm">
                         <option value="ALL">Semua Jenis Aset</option>
                         <option value="Aset Berjalan">Aset Berjalan (Lancar)</option>
                         <option value="Aset Tetap">Aset Tetap</option>
@@ -503,18 +527,18 @@
             </section>
 
             <!-- 6. LAMAN LAPORAN -->
-            <section id="page-laporan" class="hidden space-y-4">
+            <section id="page-laporan" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h2 class="text-lg font-bold">Laporan Keuangan Komprehensif</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Tabel rekapan saldo harian & WhatsApp share</p>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <button onclick="generateWhatsAppReport()" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition">
+                        <button onclick="generateWhatsAppReport()" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md transition transform active:scale-95">
                             <i class="fa-brands fa-whatsapp text-sm"></i>
                             <span>Lapor WA</span>
                         </button>
-                        <button onclick="exportToCSV()" class="px-3 py-2 bg-bri-blue hover:bg-bri-darkblue text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition">
+                        <button onclick="exportToCSV()" class="px-3 py-2 bg-bri-blue hover:bg-bri-darkblue text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md transition transform active:scale-95">
                             <i class="fa-solid fa-file-csv text-sm"></i>
                             <span>Download CSV</span>
                         </button>
@@ -523,7 +547,7 @@
 
                 <!-- Highlight Total Nilai Saat Ini & Filter -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div class="bg-gradient-to-br from-blue-600 to-bri-darkblue p-4 rounded-2xl text-white shadow-md">
+                    <div class="bg-gradient-to-br from-blue-600 to-bri-darkblue p-4 rounded-2xl text-white shadow-md interactive-card">
                         <span class="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Total Nilai Saat Ini</span>
                         <div class="text-2xl font-black mt-1" id="reportTotalValue">Rp 0</div>
                         <span class="text-[10px] text-blue-200 block mt-1">*Gabungan Saldo Kas & Cashless</span>
@@ -533,9 +557,9 @@
                     <div class="md:col-span-2 bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col justify-center space-y-2">
                         <span class="text-xs font-bold text-gray-500 dark:text-gray-400">FILTER TANGGAL & KAS</span>
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                            <input type="date" id="filterStartDate" onchange="renderReportTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
-                            <input type="date" id="filterEndDate" onchange="renderReportTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
-                            <select id="filterCashType" onchange="renderReportTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none col-span-2 sm:col-span-1 font-semibold">
+                            <input type="date" id="filterStartDate" onchange="renderReportTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
+                            <input type="date" id="filterEndDate" onchange="renderReportTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
+                            <select id="filterCashType" onchange="renderReportTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none col-span-2 sm:col-span-1 font-semibold transition">
                                 <option value="ALL">Semua Kas</option>
                                 <!-- Dynamic -->
                             </select>
@@ -569,27 +593,27 @@
         <!-- BOTTOM NAVIGATION BAR (FIXED AT BOTTOM) -->
         <nav class="fixed bottom-0 left-0 right-0 max-w-md md:max-w-5xl mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 px-2 py-2.5 shadow-2xl">
             <div class="flex justify-around items-center">
-                <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue">
+                <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue transition transform active:scale-90">
                     <i class="fa-solid fa-house text-base"></i>
                     <span class="text-[10px] font-bold mt-0.5">Beranda</span>
                 </button>
-                <button onclick="navigateTo('pemasukan')" id="nav-pemasukan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue">
+                <button onclick="navigateTo('pemasukan')" id="nav-pemasukan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90">
                     <i class="fa-solid fa-circle-arrow-down text-base"></i>
                     <span class="text-[10px] font-bold mt-0.5">Pemasukan</span>
                 </button>
-                <button onclick="navigateTo('pengeluaran')" id="nav-pengeluaran" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue">
+                <button onclick="navigateTo('pengeluaran')" id="nav-pengeluaran" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90">
                     <i class="fa-solid fa-circle-arrow-up text-base"></i>
                     <span class="text-[10px] font-bold mt-0.5">Pengeluaran</span>
                 </button>
-                <button onclick="navigateTo('rekapan')" id="nav-rekapan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue">
+                <button onclick="navigateTo('rekapan')" id="nav-rekapan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90">
                     <i class="fa-solid fa-chart-line text-base"></i>
                     <span class="text-[10px] font-bold mt-0.5">Rekapan</span>
                 </button>
-                <button onclick="navigateTo('aset')" id="nav-aset" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue">
+                <button onclick="navigateTo('aset')" id="nav-aset" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90">
                     <i class="fa-solid fa-boxes-packing text-base"></i>
                     <span class="text-[10px] font-bold mt-0.5">Aset</span>
                 </button>
-                <button onclick="navigateTo('laporan')" id="nav-laporan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue">
+                <button onclick="navigateTo('laporan')" id="nav-laporan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90">
                     <i class="fa-solid fa-file-lines text-base"></i>
                     <span class="text-[10px] font-bold mt-0.5">Laporan</span>
                 </button>
@@ -598,22 +622,22 @@
 
         <!-- MODALS -->
 
-        <!-- 1. Modal WhatsApp Share Format -->
+        <!-- 1. Modal WhatsApp Share Format (Diperbarui Lebih Menarik & Elegan) -->
         <div id="waModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-                <div class="p-4 bg-green-600 text-white flex justify-between items-center">
+            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-fadeIn">
+                <div class="p-4 bg-green-600 text-white flex justify-between items-center shadow">
                     <h3 class="font-bold text-sm flex items-center space-x-2">
                         <i class="fa-brands fa-whatsapp text-lg"></i>
-                        <span>Ringkasan Pesan WhatsApp</span>
+                        <span>Format Laporan WhatsApp Siap Salin</span>
                     </h3>
-                    <button onclick="closeModal('waModal')" class="text-white hover:text-gray-200"><i class="fa-solid fa-xmark text-base"></i></button>
+                    <button onclick="closeModal('waModal')" class="text-white hover:text-gray-200 transition transform active:scale-90"><i class="fa-solid fa-xmark text-base"></i></button>
                 </div>
-                <div class="p-4 flex-1 overflow-y-auto font-mono text-xs bg-gray-50 dark:bg-gray-900 dark:text-gray-200 whitespace-pre-wrap rounded-xl border border-gray-200 dark:border-gray-700 m-4 shadow-inner" id="waTextContent">
+                <div class="p-4 flex-1 overflow-y-auto font-mono text-xs bg-gray-50 dark:bg-gray-900 dark:text-gray-200 whitespace-pre-wrap rounded-xl border border-gray-200 dark:border-gray-700 m-4 shadow-inner leading-relaxed" id="waTextContent">
                     <!-- Dynamic WA Text -->
                 </div>
                 <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end space-x-2 bg-white dark:bg-gray-800">
-                    <button onclick="closeModal('waModal')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-xs font-bold rounded-xl">Tutup</button>
-                    <button onclick="copyToClipboard()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1 shadow">
+                    <button onclick="closeModal('waModal')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-xs font-bold rounded-xl transition">Tutup</button>
+                    <button onclick="copyToClipboard()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1 shadow-md transition transform active:scale-95">
                         <i class="fa-solid fa-copy"></i>
                         <span>Salin Teks WA</span>
                     </button>
@@ -632,16 +656,16 @@
                 <div class="space-y-3 text-xs">
                     <div>
                         <label class="block font-semibold mb-1 text-gray-500">Pilihan Kategori (Pisahkan dengan koma)</label>
-                        <input type="text" id="customCategoriesInput" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                        <input type="text" id="customCategoriesInput" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
                         <span class="text-[10px] text-gray-400">Misal: Penjualan, Donasi, Layanan, atau Operasional, Kebutuhan</span>
                     </div>
                     <div>
                         <label class="block font-semibold mb-1 text-gray-500">Pilihan Kas Asal (Pisahkan dengan koma)</label>
-                        <input type="text" id="customCashTypesInput" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                        <input type="text" id="customCashTypesInput" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
                         <span class="text-[10px] text-gray-400">Misal: Kas Kasir, Cashless, Kas Kecil, Kas Utama</span>
                     </div>
                 </div>
-                <button onclick="saveCustomOptions()" class="w-full py-2.5 bg-bri-blue text-white font-bold rounded-xl text-xs shadow">
+                <button onclick="saveCustomOptions()" class="w-full py-2.5 bg-bri-blue text-white font-bold rounded-xl text-xs shadow-md transition transform active:scale-95">
                     Simpan Perubahan Opsi
                 </button>
             </div>
@@ -657,9 +681,9 @@
                 <form onsubmit="handleAddAccount(event)" class="space-y-3 text-xs">
                     <div>
                         <label class="block font-semibold text-gray-500 mb-1">Nama Akun Baru</label>
-                        <input type="text" id="newAccountName" placeholder="Misal: Lantai 3 / Kas Event" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                        <input type="text" id="newAccountName" placeholder="Misal: Lantai 3 / Kas Event" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
                     </div>
-                    <button type="submit" class="w-full py-2.5 bg-bri-blue text-white font-bold rounded-xl text-xs shadow">
+                    <button type="submit" class="w-full py-2.5 bg-bri-blue text-white font-bold rounded-xl text-xs shadow-md transition transform active:scale-95">
                         Buat Akun Sekarang
                     </button>
                 </form>
@@ -676,30 +700,30 @@
                 <form onsubmit="saveAsset(event)" class="space-y-3 text-xs">
                     <div>
                         <label class="block font-semibold text-gray-500 mb-1">TANGGAL PENGADAAN</label>
-                        <input type="date" id="assetDate" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                        <input type="date" id="assetDate" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
                     </div>
                     <div>
                         <label class="block font-semibold text-gray-500 mb-1">NAMA ITEM ASET</label>
-                        <input type="text" id="assetName" placeholder="Misal: Printer Thermal, AC Ruangan" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                        <input type="text" id="assetName" placeholder="Misal: Printer Thermal, AC Ruangan" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="block font-semibold text-gray-500 mb-1">JENIS ASET</label>
-                            <select id="assetType" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold">
+                            <select id="assetType" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold transition">
                                 <option value="Aset Berjalan">Aset Berjalan</option>
                                 <option value="Aset Tetap">Aset Tetap</option>
                             </select>
                         </div>
                         <div>
                             <label class="block font-semibold text-gray-500 mb-1">JUMLAH (QTY)</label>
-                            <input type="number" id="assetQty" min="1" value="1" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                            <input type="number" id="assetQty" min="1" value="1" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
                         </div>
                     </div>
                     <div>
                         <label class="block font-semibold text-gray-500 mb-1">HARGA SATUAN (RP)</label>
-                        <input type="number" id="assetPrice" min="1" placeholder="0" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-bold">
+                        <input type="number" id="assetPrice" min="1" placeholder="0" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition font-bold">
                     </div>
-                    <button type="submit" class="w-full py-2.5 bg-bri-blue text-white font-bold rounded-xl text-xs shadow">
+                    <button type="submit" class="w-full py-2.5 bg-bri-blue text-white font-bold rounded-xl text-xs shadow-md transition transform active:scale-95">
                         Simpan Aset
                     </button>
                 </form>
@@ -958,7 +982,7 @@
             recentContainer.innerHTML = sorted.map(t => {
                 const totalVal = t.qty * t.amount;
                 return `
-                    <div class="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-xl">
+                    <div class="flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-xl transition hover:bg-gray-100 dark:hover:bg-gray-700/70">
                         <div class="flex items-center space-x-3">
                             <div class="w-8 h-8 rounded-xl ${t.type === 'in' ? 'bg-green-100 text-green-600 dark:bg-green-900/40' : 'bg-red-100 text-red-600 dark:bg-red-900/40'} flex items-center justify-center text-xs">
                                 <i class="fa-solid ${t.type === 'in' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
@@ -1026,7 +1050,7 @@
             tbody.innerHTML = list.map((t, idx) => {
                 const total = t.qty * t.amount;
                 return `
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
                         <td class="p-3">${idx + 1}</td>
                         <td class="p-3 font-medium">${getDayName(t.date)}, ${t.date}</td>
                         <td class="p-3 font-semibold">${t.desc}</td>
@@ -1036,7 +1060,7 @@
                         <td class="p-3 text-right">${formatRp(t.amount)}</td>
                         <td class="p-3 text-right font-extrabold text-green-600 dark:text-green-400">${formatRp(total)}</td>
                         <td class="p-3 text-center">
-                            <button onclick="deleteTransaction(${t.id})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="deleteTransaction(${t.id})" class="text-red-400 hover:text-red-600 transition transform active:scale-90"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
                 `;
@@ -1055,7 +1079,7 @@
             tbody.innerHTML = list.map((t, idx) => {
                 const total = t.qty * t.amount;
                 return `
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
                         <td class="p-3">${idx + 1}</td>
                         <td class="p-3 font-medium">${getDayName(t.date)}, ${t.date}</td>
                         <td class="p-3 font-semibold">${t.desc}</td>
@@ -1065,7 +1089,7 @@
                         <td class="p-3 text-right">${formatRp(t.amount)}</td>
                         <td class="p-3 text-right font-extrabold text-red-600 dark:text-red-400">${formatRp(total)}</td>
                         <td class="p-3 text-center">
-                            <button onclick="deleteTransaction(${t.id})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="deleteTransaction(${t.id})" class="text-red-400 hover:text-red-600 transition transform active:scale-90"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
                 `;
@@ -1217,7 +1241,7 @@
             tbody.innerHTML = currentAssets.map((a, idx) => {
                 const totalAsset = a.qty * a.price;
                 return `
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
                         <td class="p-3">${idx + 1}</td>
                         <td class="p-3 font-medium">${a.date}</td>
                         <td class="p-3 font-semibold">${a.name}</td>
@@ -1226,14 +1250,14 @@
                         <td class="p-3 text-right">${formatRp(a.price)}</td>
                         <td class="p-3 text-right font-extrabold text-amber-600 dark:text-amber-400">${formatRp(totalAsset)}</td>
                         <td class="p-3 text-center">
-                            <button onclick="deleteAsset(${a.id})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="deleteAsset(${a.id})" class="text-red-400 hover:text-red-600 transition transform active:scale-90"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        // 6. LAPORAN & WHATSAPP SHARE
+        // 6. LAPORAN & WHATSAPP SHARE (FORMAT LEBIH MENARIK DAN ELEGAN)
         function renderReportTable() {
             const startDate = document.getElementById('filterStartDate').value;
             const endDate = document.getElementById('filterEndDate').value;
@@ -1279,7 +1303,7 @@
                 runningTotal += dayBalance;
 
                 return `
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
                         <td class="p-3">${idx + 1}</td>
                         <td class="p-3">${getDayName(d)}</td>
                         <td class="p-3 font-medium">${d}</td>
@@ -1293,33 +1317,49 @@
         }
 
         function generateWhatsAppReport() {
-            let reportText = `📊 *Laporan Keuangan DCC*\n\n`;
+            let currentDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            
+            let reportText = `✨ *LAPORAN SIRKULASI KEUANGAN DCC* ✨\n`;
+            reportText += `📅 Hari/Tgl : ${currentDate}\n`;
+            reportText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+            let grandTotalAll = 0;
 
             state.accounts.forEach(acc => {
                 const accTx = state.transactions.filter(t => t.account === acc);
                 let cashKasir = 0;
                 let cashless = 0;
+                let totalInAcc = 0;
+                let totalOutAcc = 0;
 
                 accTx.forEach(t => {
                     const totalVal = t.qty * t.amount;
                     if (t.type === 'in') {
+                        totalInAcc += totalVal;
                         if (t.cashType === 'Kas Kasir') cashKasir += totalVal;
                         if (t.cashType === 'Cashless') cashless += totalVal;
                     } else if (t.type === 'out') {
+                        totalOutAcc += totalVal;
                         if (t.cashType === 'Kas Kasir') cashKasir -= totalVal;
                         if (t.cashType === 'Cashless') cashless -= totalVal;
                     }
                 });
 
                 const totalAcc = cashKasir + cashless;
+                grandTotalAll += totalAcc;
 
-                reportText += `*${acc}*\n`;
-                reportText += `Kas Kasir : ${formatRp(cashKasir)}\n`;
-                reportText += `Cashless : ${formatRp(cashless)}\n`;
-                reportText += `Total : ${formatRp(totalAcc)}\n\n`;
+                reportText += `🏢 *${acc.toUpperCase()}*\n`;
+                reportText += `• Masuk     : ${formatRp(totalInAcc)}\n`;
+                reportText += `• Keluar    : ${formatRp(totalOutAcc)}\n`;
+                reportText += `• Kas Tunai : ${formatRp(cashKasir)}\n`;
+                reportText += `• Cashless  : ${formatRp(cashless)}\n`;
+                reportText += `📌 *Subtotal  : ${formatRp(totalAcc)}*\n\n`;
             });
 
-            reportText += `_Dibuat otomatis via Web App BRImo Style_`;
+            reportText += `━━━━━━━━━━━━━━━━━━━━━\n`;
+            reportText += `💰 *TOTAL KESELURUHAN : ${formatRp(grandTotalAll)}*\n`;
+            reportText += `━━━━━━━━━━━━━━━━━━━━━\n`;
+            reportText += `_🤖 Diterbitkan otomatis oleh Sistem Keuangan Sektor DCC_`;
 
             document.getElementById('waTextContent').innerText = reportText;
             openModal('waModal');
@@ -1333,7 +1373,7 @@
             textarea.select();
             document.execCommand('copy');
             document.body.removeChild(textarea);
-            alert('Teks Laporan WhatsApp berhasil disalin ke clipboard!');
+            alert('✨ Teks Laporan WhatsApp berhasil disalin!');
         }
 
         function exportToCSV() {
