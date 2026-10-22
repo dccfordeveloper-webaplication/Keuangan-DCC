@@ -81,7 +81,7 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-300">
 
-    <!-- LOGIN SCREEN (HANYA PASSWORD "dcc2026") -->
+    <!-- LOGIN SCREEN -->
     <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-bri-gradient p-4">
         <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 md:p-8 relative overflow-hidden transform transition-all duration-500 scale-100">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-xl"></div>
@@ -115,7 +115,7 @@
     <!-- MAIN APPLICATION WRAPPER -->
     <div id="mainApp" class="hidden min-h-screen flex flex-col max-w-md md:max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-2xl relative">
         
-        <!-- HEADER TOP BAR BRImo -->
+        <!-- HEADER TOP BAR -->
         <header class="bg-bri-gradient text-white p-4 sticky top-0 z-30 rounded-b-2xl shadow-md transition-all">
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center space-x-3">
@@ -131,18 +131,16 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <!-- Dark/Light Theme Switcher -->
                     <button onclick="toggleDarkMode()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition transform active:scale-90" title="Ganti Tema">
                         <i id="themeIcon" class="fa-solid fa-moon text-sm"></i>
                     </button>
-                    <!-- Logout -->
                     <button onclick="handleLogout()" class="w-9 h-9 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-200 flex items-center justify-center transition transform active:scale-90" title="Keluar">
                         <i class="fa-solid fa-right-from-bracket text-sm"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- AKUN KEUANGAN CONTROLLER & SWITCHER -->
+            <!-- AKUN KEUANGAN CONTROLLER -->
             <div class="bg-white/10 backdrop-blur-md p-2.5 rounded-2xl border border-white/15 flex items-center justify-between shadow-inner">
                 <div class="flex items-center space-x-2.5 overflow-hidden">
                     <div class="w-8 h-8 rounded-xl bg-bri-orange/20 flex items-center justify-center text-bri-orange">
@@ -162,12 +160,11 @@
             </div>
         </header>
 
-        <!-- MAIN CONTENT CONTAINER WITH IMPROVED SCROLL PADDING (pb-32) -->
+        <!-- MAIN CONTENT CONTAINER -->
         <main class="flex-1 p-4 overflow-y-auto space-y-5 pb-32">
             
-            <!-- 1. LAMAN BERANDA (DASHBOARD) -->
+            <!-- 1. BERANDA -->
             <section id="page-beranda" class="page-section space-y-5">
-                <!-- BRImo Saldo Card -->
                 <div class="bg-bri-card rounded-3xl p-5 text-white shadow-xl relative overflow-hidden interactive-card">
                     <div class="absolute -right-8 -bottom-8 w-36 h-36 bg-white/10 rounded-full blur-2xl"></div>
                     <div class="flex justify-between items-start mb-2 relative z-10">
@@ -192,11 +189,9 @@
                     </div>
                 </div>
 
-                <!-- 3 KARTU INDIKATOR UTAMA KEUANGAN DI BERANDA -->
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Ringkasan Keuangan Sektor</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <!-- 1. TOTAL OMZET -->
                         <div class="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-blue-100 dark:border-gray-600 shadow-sm flex items-center space-x-3 interactive-card">
                             <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 text-base shadow-sm">
                                 <i class="fa-solid fa-chart-simple"></i>
@@ -207,7 +202,6 @@
                             </div>
                         </div>
 
-                        <!-- 2. TOTAL PROFIT (LABA BERSIH) -->
                         <div class="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-green-100 dark:border-gray-600 shadow-sm flex items-center space-x-3 interactive-card">
                             <div class="w-10 h-10 rounded-xl bg-green-600 text-white flex items-center justify-center shrink-0 text-base shadow-sm">
                                 <i class="fa-solid fa-sack-dollar"></i>
@@ -218,7 +212,6 @@
                             </div>
                         </div>
 
-                        <!-- 3. TOTAL ASET -->
                         <div class="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-gray-700/60 dark:to-gray-700 p-3.5 rounded-2xl border border-amber-100 dark:border-gray-600 shadow-sm flex items-center space-x-3 interactive-card">
                             <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 text-base shadow-sm">
                                 <i class="fa-solid fa-boxes-stacked"></i>
@@ -231,7 +224,6 @@
                     </div>
                 </div>
 
-                <!-- Shortcut Pintas Navigasi -->
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Pintasan Cepat</h3>
                     <div class="grid grid-cols-4 gap-3 text-center">
@@ -262,7 +254,6 @@
                     </div>
                 </div>
 
-                <!-- Activity Feed Terakhir -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Riwayat Transaksi Terakhir</h3>
@@ -274,7 +265,7 @@
                 </div>
             </section>
 
-            <!-- 2. LAMAN PEMASUKAN TERPISAH -->
+            <!-- 2. PEMASUKAN -->
             <section id="page-pemasukan" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
@@ -289,7 +280,6 @@
                     </button>
                 </div>
 
-                <!-- Form Input Pemasukan -->
                 <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Input Uang Masuk Baru</h3>
                     <form onsubmit="saveTransaction(event, 'in')" class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -308,13 +298,11 @@
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">JENIS PEMASUKAN</label>
                             <select id="inCategory" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition">
-                                <!-- Dynamic Options -->
                             </select>
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">KAS ASAL</label>
                             <select id="inCashType" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition">
-                                <!-- Dynamic Options -->
                             </select>
                         </div>
                         <div>
@@ -329,7 +317,6 @@
                     </form>
                 </div>
 
-                <!-- Table Pemasukan -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
@@ -346,13 +333,12 @@
                             </tr>
                         </thead>
                         <tbody id="inTableBody" class="divide-y divide-gray-100 dark:divide-gray-700">
-                            <!-- Dynamic Rows -->
                         </tbody>
                     </table>
                 </div>
             </section>
 
-            <!-- 3. LAMAN PENGELUARAN TERPISAH -->
+            <!-- 3. PENGELUARAN -->
             <section id="page-pengeluaran" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
@@ -367,7 +353,6 @@
                     </button>
                 </div>
 
-                <!-- Form Input Pengeluaran -->
                 <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Input Uang Keluar Baru</h3>
                     <form onsubmit="saveTransaction(event, 'out')" class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -386,13 +371,11 @@
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">JENIS PENGELUARAN</label>
                             <select id="outCategory" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition">
-                                <!-- Dynamic Options -->
                             </select>
                         </div>
                         <div>
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">KAS ASAL</label>
                             <select id="outCashType" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-red-500 transition">
-                                <!-- Dynamic Options -->
                             </select>
                         </div>
                         <div>
@@ -407,7 +390,6 @@
                     </form>
                 </div>
 
-                <!-- Table Pengeluaran -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
@@ -424,13 +406,12 @@
                             </tr>
                         </thead>
                         <tbody id="outTableBody" class="divide-y divide-gray-100 dark:divide-gray-700">
-                            <!-- Dynamic Rows -->
                         </tbody>
                     </table>
                 </div>
             </section>
 
-            <!-- 4. LAMAN REKAPAN (ANALYTICS & DIAGRAM) -->
+            <!-- 4. REKAPAN ANALYTICS -->
             <section id="page-rekapan" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
@@ -444,7 +425,6 @@
                     </select>
                 </div>
 
-                <!-- Indikator Alert Penurunan / Warning -->
                 <div id="insightAlert" class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 flex items-start space-x-3 text-xs shadow-sm">
                     <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 text-base mt-0.5 animate-bounce"></i>
                     <div>
@@ -453,12 +433,10 @@
                     </div>
                 </div>
 
-                <!-- Line Chart Container -->
                 <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
                     <canvas id="financialChart" class="w-full h-64"></canvas>
                 </div>
 
-                <!-- Dynamic Metrics -->
                 <div class="grid grid-cols-3 gap-2">
                     <div class="bg-blue-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
                         <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">OMZET KOTOR</span>
@@ -475,7 +453,7 @@
                 </div>
             </section>
 
-            <!-- 5. LAMAN ASET -->
+            <!-- 5. ASET -->
             <section id="page-aset" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -488,7 +466,6 @@
                     </button>
                 </div>
 
-                <!-- Total Asset Banner (Mencolok di Kiri Atas) -->
                 <div class="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-4 rounded-2xl shadow-lg flex justify-between items-center interactive-card">
                     <div>
                         <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nominal Aset Keseluruhan</span>
@@ -500,7 +477,6 @@
                     </div>
                 </div>
 
-                <!-- Filter Asset -->
                 <div class="flex gap-2">
                     <select id="assetFilterType" onchange="renderAssetTable()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-semibold shadow-sm">
                         <option value="ALL">Semua Jenis Aset</option>
@@ -509,7 +485,6 @@
                     </select>
                 </div>
 
-                <!-- Asset Table -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
@@ -525,13 +500,12 @@
                             </tr>
                         </thead>
                         <tbody id="assetTableBody" class="divide-y divide-gray-100 dark:divide-gray-700">
-                            <!-- Dynamic Content -->
                         </tbody>
                     </table>
                 </div>
             </section>
 
-            <!-- 6. LAMAN LAPORAN -->
+            <!-- 6. LAPORAN -->
             <section id="page-laporan" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -550,7 +524,6 @@
                     </div>
                 </div>
 
-                <!-- Highlight Total Nilai Saat Ini & Filter -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div class="bg-gradient-to-br from-blue-600 to-bri-darkblue p-4 rounded-2xl text-white shadow-md interactive-card">
                         <span class="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Total Nilai Saat Ini</span>
@@ -558,7 +531,6 @@
                         <span class="text-[10px] text-blue-200 block mt-1">*Gabungan Saldo Kas & Cashless</span>
                     </div>
 
-                    <!-- Filter Area -->
                     <div class="md:col-span-2 bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col justify-center space-y-2">
                         <span class="text-xs font-bold text-gray-500 dark:text-gray-400">FILTER TANGGAL & KAS</span>
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
@@ -566,13 +538,11 @@
                             <input type="date" id="filterEndDate" onchange="renderReportTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none transition">
                             <select id="filterCashType" onchange="renderReportTable()" class="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none col-span-2 sm:col-span-1 font-semibold transition">
                                 <option value="ALL">Semua Kas</option>
-                                <!-- Dynamic -->
                             </select>
                         </div>
                     </div>
                 </div>
 
-                <!-- Table Laporan -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
@@ -587,7 +557,6 @@
                             </tr>
                         </thead>
                         <tbody id="reportTableBody" class="divide-y divide-gray-100 dark:divide-gray-700">
-                            <!-- Dynamic Rows -->
                         </tbody>
                     </table>
                 </div>
@@ -595,7 +564,7 @@
 
         </main>
 
-        <!-- BOTTOM NAVIGATION BAR (FIXED AT BOTTOM) -->
+        <!-- BOTTOM NAVIGATION BAR -->
         <nav class="fixed bottom-0 left-0 right-0 max-w-md md:max-w-5xl mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 px-2 py-2.5 shadow-2xl">
             <div class="flex justify-around items-center">
                 <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue transition transform active:scale-90">
@@ -626,8 +595,7 @@
         </nav>
 
         <!-- MODALS -->
-
-        <!-- 1. Modal WhatsApp Share Format -->
+        <!-- 1. Modal WhatsApp -->
         <div id="waModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
                 <div class="p-4 bg-green-600 text-white flex justify-between items-center shadow">
@@ -638,7 +606,6 @@
                     <button onclick="closeModal('waModal')" class="text-white hover:text-gray-200 transition transform active:scale-90"><i class="fa-solid fa-xmark text-base"></i></button>
                 </div>
                 <div class="p-4 flex-1 overflow-y-auto font-mono text-xs bg-gray-50 dark:bg-gray-900 dark:text-gray-200 whitespace-pre-wrap rounded-xl border border-gray-200 dark:border-gray-700 m-4 shadow-inner leading-relaxed" id="waTextContent">
-                    <!-- Dynamic WA Text -->
                 </div>
                 <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end space-x-2 bg-white dark:bg-gray-800">
                     <button onclick="closeModal('waModal')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-xs font-bold rounded-xl transition">Tutup</button>
@@ -650,7 +617,7 @@
             </div>
         </div>
 
-        <!-- 2. Modal Custom Options Per-Laman -->
+        <!-- 2. Modal Custom Options -->
         <div id="customOptionModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-4">
                 <div class="flex justify-between items-center">
@@ -676,7 +643,7 @@
             </div>
         </div>
 
-        <!-- 3. Modal Tambah Akun Keuangan -->
+        <!-- 3. Modal Tambah Akun -->
         <div id="addAccountModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-xl p-5 space-y-4">
                 <div class="flex justify-between items-center">
@@ -737,13 +704,11 @@
 
     </div>
 
-    <!-- JAVASCRIPT LOGIC DENGAN SUPABASE REALTIME CLOUD SYNC -->
+    <!-- JAVASCRIPT LOGIC -->
     <script>
-        // KREDENSIAL SUPABASE DATABASE
         const SUPABASE_URL = "https://rsxleuqxlqlszsihbrew.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzeGxldXF4bHFsc3pzaWhicmV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NTI1ODQsImV4cCI6MjEwODIyODU4NH0.p13W3tOoA6bhlGAY1gB-CtvXz2v1PM8YqNX5HiiSYG0";
         
-        // Inisialisasi Supabase SDK
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const DEFAULT_ACCOUNTS = ["Lantai 1", "Lantai 2"];
@@ -797,19 +762,16 @@
             refreshCurrentPage();
         }
 
-        // 1. FETCH DATA DARI SUPABASE CLOUD
         async function fetchAllFromSupabase() {
             try {
-                // Ambil Akun
-                const { data: accData, error: accErr } = await _supabase.from('accounts').select('*');
+                const { data: accData } = await _supabase.from('accounts').select('*');
                 if (accData && accData.length > 0) {
                     state.accounts = accData.map(a => a.name);
                 } else {
                     state.accounts = [...DEFAULT_ACCOUNTS];
                 }
 
-                // Ambil Transaksi
-                const { data: txData, error: txErr } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
+                const { data: txData } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
                 if (txData) {
                     state.transactions = txData.map(t => ({
                         id: t.id,
@@ -824,8 +786,7 @@
                     }));
                 }
 
-                // Ambil Aset
-                const { data: assetData, error: assetErr } = await _supabase.from('assets').select('*').order('id', { ascending: true });
+                const { data: assetData } = await _supabase.from('assets').select('*').order('id', { ascending: true });
                 if (assetData) {
                     state.assets = assetData.map(a => ({
                         id: a.id,
@@ -838,16 +799,14 @@
                     }));
                 }
             } catch (err) {
-                console.error("Gagal mengambil data dari Supabase:", err);
+                console.error("Gagal memuat data dari Supabase:", err);
             }
         }
 
-        // 2. REALTIME SYNC LISTENER (LIVESYNC ANTAR DEVICE)
         function setupRealtimeSync() {
             _supabase
                 .channel('public-db-changes')
                 .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
-                    console.log("Perubahan data terdeteksi di Cloud, memperbarui...", payload);
                     await fetchAllFromSupabase();
                     renderAccountSelector();
                     refreshCurrentPage();
@@ -865,7 +824,11 @@
                 localStorage.setItem('brimo_logged_in', 'true');
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
-                await initApp();
+                try {
+                    await initApp();
+                } catch (err) {
+                    console.error("Error inisialisasi awal:", err);
+                }
             } else {
                 if (errorElement) errorElement.classList.remove('hidden');
             }
@@ -878,7 +841,6 @@
             document.getElementById('loginScreen').classList.remove('hidden');
         }
 
-        // NAVIGATION LOGIC
         let currentPage = 'beranda';
         function navigateTo(pageId) {
             currentPage = pageId;
@@ -908,7 +870,6 @@
             if (currentPage === 'laporan') renderReportTable();
         }
 
-        // MULTI-ACCOUNT MANAGEMENT
         function renderAccountSelector() {
             const select = document.getElementById('accountSelect');
             if(!state.accounts.includes(state.currentAccount) && state.accounts.length > 0) {
@@ -937,7 +898,6 @@
             }
         }
 
-        // CUSTOM OPTIONS DROPDOWN MANAGER
         function renderDropdownOptions() {
             document.getElementById('inCategory').innerHTML = state.inOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
             document.getElementById('inCashType').innerHTML = state.inOptions.cashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -984,7 +944,6 @@
             refreshCurrentPage();
         }
 
-        // 1. BERANDA LOGIC
         function renderDashboard() {
             const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
             let totalIn = 0, totalOut = 0;
@@ -1045,7 +1004,6 @@
             renderDashboard();
         }
 
-        // 2 & 3. TRANSAKSI (PEMASUKAN & PENGELUARAN DENGAN CLOUD SAVE)
         async function saveTransaction(e, type) {
             e.preventDefault();
             const prefix = type === 'in' ? 'in' : 'out';
@@ -1057,7 +1015,6 @@
             const cashType = document.getElementById(`${prefix}CashType`).value;
             const amount = parseFloat(document.getElementById(`${prefix}Amount`).value);
 
-            // Simpan ke Supabase Database
             const { data, error } = await _supabase.from('transactions').insert([{
                 account: state.currentAccount,
                 type: type,
@@ -1147,7 +1104,6 @@
             }).join('');
         }
 
-        // 4. REKAPAN (ANALYTICS & LINE CHART)
         function renderChartPage() {
             updateChartData();
         }
@@ -1237,7 +1193,6 @@
             });
         }
 
-        // 5. ASET LOGIC WITH CLOUD SAVE
         async function saveAsset(e) {
             e.preventDefault();
             const date = document.getElementById('assetDate').value;
@@ -1317,7 +1272,6 @@
             }).join('');
         }
 
-        // 6. LAPORAN & WHATSAPP SHARE
         function renderReportTable() {
             const startDate = document.getElementById('filterStartDate').value;
             const endDate = document.getElementById('filterEndDate').value;
@@ -1471,7 +1425,6 @@
             document.body.removeChild(link);
         }
 
-        // UTILITIES
         function formatRp(val) {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
         }
