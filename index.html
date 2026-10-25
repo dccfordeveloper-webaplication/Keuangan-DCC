@@ -165,7 +165,7 @@
                                 <i class="fa-solid fa-chart-simple"></i>
                             </div>
                             <div class="overflow-hidden">
-                                <span class="text-[10px] text-gray-500 dark:text-gray-400 font-bold block uppercase tracking-tight">Total Omzet</span>
+                                <span class="text-[10px] text-gray-500 dark:text-gray-400 font-bold block uppercase tracking-tight">Total Omzet Akun</span>
                                 <span class="text-sm font-black text-blue-700 dark:text-blue-300 truncate block" id="dashTotalOmzet">Rp 0</span>
                             </div>
                         </div>
@@ -174,7 +174,7 @@
                                 <i class="fa-solid fa-sack-dollar"></i>
                             </div>
                             <div class="overflow-hidden">
-                                <span class="text-[10px] text-gray-500 dark:text-gray-400 font-bold block uppercase tracking-tight">Total Profit (Laba)</span>
+                                <span class="text-[10px] text-gray-500 dark:text-gray-400 font-bold block uppercase tracking-tight">Total Profit Akun</span>
                                 <span class="text-sm font-black text-green-700 dark:text-green-300 truncate block" id="dashTotalProfit">Rp 0</span>
                             </div>
                         </div>
@@ -183,7 +183,7 @@
                                 <i class="fa-solid fa-boxes-stacked"></i>
                             </div>
                             <div class="overflow-hidden">
-                                <span class="text-[10px] text-gray-500 dark:text-gray-400 font-bold block uppercase tracking-tight">Total Aset Dimiliki</span>
+                                <span class="text-[10px] text-gray-500 dark:text-gray-400 font-bold block uppercase tracking-tight">Total Aset Akun</span>
                                 <span class="text-sm font-black text-amber-700 dark:text-amber-300 truncate block" id="dashTotalAsset">Rp 0</span>
                             </div>
                         </div>
@@ -379,7 +379,7 @@
                 <div class="flex justify-between items-center">
                     <div>
                         <h2 class="text-lg font-bold">Grafik Makro Keuangan</h2>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Diagram Omzet, Profit & Pengeluaran Umum</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Diagram Omzet, Profit & Pengeluaran Akun Aktif</p>
                     </div>
                     <select id="chartPeriod" onchange="updateChartData()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
                         <option value="7">7 Hari Terakhir</option>
@@ -392,7 +392,7 @@
                     <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 text-base mt-0.5 animate-bounce"></i>
                     <div>
                         <h4 class="font-bold text-amber-800 dark:text-amber-300">Indikator Performa Otomatis</h4>
-                        <p id="insightText" class="text-amber-700 dark:text-amber-200 mt-0.5">Menganalisis alur kas sektor...</p>
+                        <p id="insightText" class="text-amber-700 dark:text-amber-200 mt-0.5">Menganalisis alur kas akun...</p>
                     </div>
                 </div>
 
@@ -521,7 +521,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div class="bg-gradient-to-br from-blue-600 to-bri-darkblue p-4 rounded-2xl text-white shadow-md interactive-card">
-                        <span class="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Total Nilai Saat Ini</span>
+                        <span class="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Total Nilai Akun Ini</span>
                         <div class="text-2xl font-black mt-1" id="reportTotalValue">Rp 0</div>
                         <span class="text-[10px] text-blue-200 block mt-1">*Gabungan Saldo Kas & Cashless</span>
                     </div>
@@ -683,16 +683,19 @@
             accounts: [],
             transactions: [],
             assets: [],
-            inOptions: {
-                categories: ["Penjualan", "Layanan", "Donasi", "Lain-lain"],
-                cashTypes: ["Kas Kasir", "Cashless", "Kas Kecil"]
-            },
-            outOptions: {
-                categories: ["Operasional", "Kebutuhan", "Belanja Stok", "Maintenance"],
-                cashTypes: ["Kas Kasir", "Cashless", "Kas Besar"]
-            },
+            optionsPerAccount: {}, // Disimpan per akun
             microFilters: {},
             isBalanceHidden: false
+        };
+
+        const DEFAULT_IN_OPTIONS = {
+            categories: ["Penjualan", "Layanan", "Donasi", "Lain-lain"],
+            cashTypes: ["Kas Kasir", "Cashless", "Kas Kecil"]
+        };
+
+        const DEFAULT_OUT_OPTIONS = {
+            categories: ["Operasional", "Kebutuhan", "Belanja Stok", "Maintenance"],
+            cashTypes: ["Kas Kasir", "Cashless", "Kas Besar"]
         };
 
         let chartInstance = null;
@@ -739,16 +742,36 @@
             await fetchAllFromSupabase();
             setupRealtimeSync();
             renderAccountSelector();
+            ensureAccountOptions();
             renderDropdownOptions();
             refreshCurrentPage();
         }
 
         function loadLocalOptions() {
-            const savedInOpt = localStorage.getItem('brimo_in_options');
-            if (savedInOpt) state.inOptions = JSON.parse(savedInOpt);
+            const savedOpt = localStorage.getItem('brimo_options_per_account');
+            if (savedOpt) {
+                try {
+                    state.optionsPerAccount = JSON.parse(savedOpt);
+                } catch(e) {
+                    state.optionsPerAccount = {};
+                }
+            }
+        }
 
-            const savedOutOpt = localStorage.getItem('brimo_out_options');
-            if (savedOutOpt) state.outOptions = JSON.parse(savedOutOpt);
+        function saveLocalOptions() {
+            localStorage.setItem('brimo_options_per_account', JSON.stringify(state.optionsPerAccount));
+        }
+
+        function ensureAccountOptions() {
+            state.accounts.forEach(acc => {
+                if (!state.optionsPerAccount[acc]) {
+                    state.optionsPerAccount[acc] = {
+                        in: JSON.parse(JSON.stringify(DEFAULT_IN_OPTIONS)),
+                        out: JSON.parse(JSON.stringify(DEFAULT_OUT_OPTIONS))
+                    };
+                }
+            });
+            saveLocalOptions();
         }
 
         async function fetchAllFromSupabase() {
@@ -766,6 +789,8 @@
                 } else if (state.accounts.length === 0) {
                     state.accounts = [...DEFAULT_ACCOUNTS];
                 }
+
+                ensureAccountOptions();
 
                 const { data: txData, error: txErr } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
                 if (!txErr && txData) {
@@ -809,6 +834,8 @@
                     .on('postgres_changes', { event: '*', schema: 'public' }, async () => {
                         await fetchAllFromSupabase();
                         renderAccountSelector();
+                        ensureAccountOptions();
+                        renderDropdownOptions();
                         refreshCurrentPage();
                     })
                     .subscribe();
@@ -857,6 +884,8 @@
 
         function switchAccount(accountName) {
             state.currentAccount = accountName;
+            ensureAccountOptions();
+            renderDropdownOptions();
             refreshCurrentPage();
         }
 
@@ -870,38 +899,54 @@
                 }
                 state.accounts.push(name);
                 state.currentAccount = name;
+                ensureAccountOptions();
                 renderAccountSelector();
+                renderDropdownOptions();
                 closeModal('addAccountModal');
                 input.value = '';
                 refreshCurrentPage();
             }
         }
 
+        function getCurrentAccountOptions() {
+            if (!state.optionsPerAccount[state.currentAccount]) {
+                state.optionsPerAccount[state.currentAccount] = {
+                    in: JSON.parse(JSON.stringify(DEFAULT_IN_OPTIONS)),
+                    out: JSON.parse(JSON.stringify(DEFAULT_OUT_OPTIONS))
+                };
+            }
+            return state.optionsPerAccount[state.currentAccount];
+        }
+
         function renderDropdownOptions() {
-            document.getElementById('inCategory').innerHTML = state.inOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
-            document.getElementById('inCashType').innerHTML = state.inOptions.cashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
+            const opt = getCurrentAccountOptions();
 
-            document.getElementById('outCategory').innerHTML = state.outOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
-            document.getElementById('outCashType').innerHTML = state.outOptions.cashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('inCategory').innerHTML = opt.in.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('inCashType').innerHTML = opt.in.cashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
 
-            document.getElementById('filterInType').innerHTML = `<option value="ALL">Semua Jenis Pemasukan</option>` + state.inOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
-            document.getElementById('filterOutType').innerHTML = `<option value="ALL">Semua Jenis Pengeluaran</option>` + state.outOptions.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('outCategory').innerHTML = opt.out.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('outCashType').innerHTML = opt.out.cashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
 
-            const allCash = Array.from(new Set([...state.inOptions.cashTypes, ...state.outOptions.cashTypes]));
+            document.getElementById('filterInType').innerHTML = `<option value="ALL">Semua Jenis Pemasukan</option>` + opt.in.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('filterOutType').innerHTML = `<option value="ALL">Semua Jenis Pengeluaran</option>` + opt.out.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            const allCash = Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
             document.getElementById('filterCashType').innerHTML = `<option value="ALL">Semua Kas</option>` + allCash.map(c => `<option value="${c}">${c}</option>`).join('');
         }
 
         function openCustomOptionModal(type) {
             document.getElementById('customTargetType').value = type;
             const title = document.getElementById('customOptionModalTitle');
+            const opt = getCurrentAccountOptions();
+
             if (type === 'in') {
-                title.innerText = "Custom Opsi Pemasukan";
-                document.getElementById('customCategoriesInput').value = state.inOptions.categories.join(', ');
-                document.getElementById('customCashTypesInput').value = state.inOptions.cashTypes.join(', ');
+                title.innerText = `Custom Opsi Pemasukan (${state.currentAccount})`;
+                document.getElementById('customCategoriesInput').value = opt.in.categories.join(', ');
+                document.getElementById('customCashTypesInput').value = opt.in.cashTypes.join(', ');
             } else {
-                title.innerText = "Custom Opsi Pengeluaran";
-                document.getElementById('customCategoriesInput').value = state.outOptions.categories.join(', ');
-                document.getElementById('customCashTypesInput').value = state.outOptions.cashTypes.join(', ');
+                title.innerText = `Custom Opsi Pengeluaran (${state.currentAccount})`;
+                document.getElementById('customCategoriesInput').value = opt.out.categories.join(', ');
+                document.getElementById('customCashTypesInput').value = opt.out.cashTypes.join(', ');
             }
             openModal('customOptionModal');
         }
@@ -911,16 +956,17 @@
             const catArr = document.getElementById('customCategoriesInput').value.split(',').map(s => s.trim()).filter(Boolean);
             const cashArr = document.getElementById('customCashTypesInput').value.split(',').map(s => s.trim()).filter(Boolean);
 
+            const opt = getCurrentAccountOptions();
+
             if (targetType === 'in') {
-                if (catArr.length) state.inOptions.categories = catArr;
-                if (cashArr.length) state.inOptions.cashTypes = cashArr;
-                localStorage.setItem('brimo_in_options', JSON.stringify(state.inOptions));
+                if (catArr.length) opt.in.categories = catArr;
+                if (cashArr.length) opt.in.cashTypes = cashArr;
             } else {
-                if (catArr.length) state.outOptions.categories = catArr;
-                if (cashArr.length) state.outOptions.cashTypes = cashArr;
-                localStorage.setItem('brimo_out_options', JSON.stringify(state.outOptions));
+                if (catArr.length) opt.out.categories = catArr;
+                if (cashArr.length) opt.out.cashTypes = cashArr;
             }
 
+            saveLocalOptions();
             renderDropdownOptions();
             closeModal('customOptionModal');
             refreshCurrentPage();
@@ -986,10 +1032,11 @@
             const container = document.getElementById('cashTypeTablesContainer');
             if(!container) return;
 
-            const allCashTypes = Array.from(new Set([...state.inOptions.cashTypes, ...state.outOptions.cashTypes]));
+            const opt = getCurrentAccountOptions();
+            const allCashTypes = Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
 
             if (allCashTypes.length === 0) {
-                container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center">Belum ada Kas Asal terdaftar.</p>`;
+                container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center">Belum ada Kas Asal terdaftar untuk akun ini.</p>`;
                 return;
             }
 
@@ -1230,11 +1277,11 @@
 
             const alertBox = document.getElementById('insightText');
             if (totalProfit < 0) {
-                alertBox.innerHTML = `⚠️ <b class="text-red-600 dark:text-red-400">Defisit:</b> Terdapat kerugian operasional sebesar <b>${formatRp(Math.abs(totalProfit))}</b>.`;
+                alertBox.innerHTML = `⚠️ <b class="text-red-600 dark:text-red-400">Defisit:</b> Terdapat kerugian operasional sebesar <b>${formatRp(Math.abs(totalProfit))}</b> pada akun ${state.currentAccount}.`;
             } else if (totalExpense > (totalOmzet * 0.65) && totalOmzet > 0) {
-                alertBox.innerHTML = `⚠️ <b class="text-amber-600 dark:text-amber-400">Peringatan:</b> Pengeluaran melebihi 65% omzet kotor.`;
+                alertBox.innerHTML = `⚠️ <b class="text-amber-600 dark:text-amber-400">Peringatan:</b> Pengeluaran akun ${state.currentAccount} melebihi 65% omzet kotor.`;
             } else {
-                alertBox.innerHTML = `✅ <b class="text-green-600 dark:text-green-400">Kondisi Sehat:</b> Alur transaksi stabil dan profitabel.`;
+                alertBox.innerHTML = `✅ <b class="text-green-600 dark:text-green-400">Kondisi Sehat:</b> Alur transaksi akun ${state.currentAccount} stabil dan profitabel.`;
             }
 
             const ctx = document.getElementById('financialChart').getContext('2d');
@@ -1267,6 +1314,7 @@
         function renderMicroCharts() {
             const periodDays = parseInt(document.getElementById('microPeriod').value);
             const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
+            const opt = getCurrentAccountOptions();
 
             const labels = [];
             for (let i = periodDays - 1; i >= 0; i--) {
@@ -1280,13 +1328,12 @@
             const inContainer = document.getElementById('microInContainer');
             inContainer.innerHTML = '';
 
-            state.inOptions.categories.forEach((cat, index) => {
+            opt.in.categories.forEach((cat, index) => {
                 const key = `in_${index}`;
                 const selectedDays = parseInt(state.microFilters[key] || periodDays);
 
                 let catTx = currentAccTx.filter(t => t.type === 'in' && t.category === cat);
                 
-                // Tentukan tanggal batas filter individual
                 if (selectedDays > 0) {
                     const cutoff = getFormattedDate(-selectedDays + 1);
                     catTx = catTx.filter(t => t.date >= cutoff);
@@ -1322,7 +1369,6 @@
                             <canvas id="${chartId}"></canvas>
                         </div>
 
-                        <!-- KONTEN TABEL DENGAN WIDGET SCROLL HINGGA RAPI -->
                         <div class="max-h-44 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-xl">
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead class="sticky top-0 bg-gray-50 dark:bg-gray-700 text-gray-500 shadow-sm">
@@ -1381,7 +1427,7 @@
             const outContainer = document.getElementById('microOutContainer');
             outContainer.innerHTML = '';
 
-            state.outOptions.categories.forEach((cat, index) => {
+            opt.out.categories.forEach((cat, index) => {
                 const key = `out_${index}`;
                 const selectedDays = parseInt(state.microFilters[key] || periodDays);
 
@@ -1422,7 +1468,6 @@
                             <canvas id="${chartId}"></canvas>
                         </div>
 
-                        <!-- KONTEN TABEL DENGAN WIDGET SCROLL HINGGA RAPI -->
                         <div class="max-h-44 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-xl">
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead class="sticky top-0 bg-gray-50 dark:bg-gray-700 text-gray-500 shadow-sm">
