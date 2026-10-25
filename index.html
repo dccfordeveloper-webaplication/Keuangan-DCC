@@ -683,7 +683,7 @@
             accounts: [],
             transactions: [],
             assets: [],
-            optionsPerAccount: {}, // Disimpan per akun
+            optionsPerAccount: {}, // Disimpan ke tabel Supabase accounts
             microFilters: {},
             isBalanceHidden: false
         };
@@ -702,7 +702,6 @@
         let microChartInstances = {};
 
         window.onload = async function() {
-            loadLocalOptions();
             const today = new Date().toISOString().split('T')[0];
             if(document.getElementById('inDate')) document.getElementById('inDate').value = today;
             if(document.getElementById('outDate')) document.getElementById('outDate').value = today;
@@ -747,36 +746,9 @@
             refreshCurrentPage();
         }
 
-        function loadLocalOptions() {
-            const savedOpt = localStorage.getItem('brimo_options_per_account');
-            if (savedOpt) {
-                try {
-                    state.optionsPerAccount = JSON.parse(savedOpt);
-                } catch(e) {
-                    state.optionsPerAccount = {};
-                }
-            }
-        }
-
-        function saveLocalOptions() {
-            localStorage.setItem('brimo_options_per_account', JSON.stringify(state.optionsPerAccount));
-        }
-
-        function ensureAccountOptions() {
-            state.accounts.forEach(acc => {
-                if (!state.optionsPerAccount[acc]) {
-                    state.optionsPerAccount[acc] = {
-                        in: JSON.parse(JSON.stringify(DEFAULT_IN_OPTIONS)),
-                        out: JSON.parse(JSON.stringify(DEFAULT_OUT_OPTIONS))
-                    };
-                }
-            });
-            saveLocalOptions();
-        }
-
         async function fetchAllFromSupabase() {
             if (!_supabase) {
-                console.warn("Supabase tidak aktif, menggunakan data lokal.");
+                console.warn("Supabase tidak aktif.");
                 return;
             }
             try {
@@ -786,6 +758,15 @@
                 const { data: accData, error: accErr } = await _supabase.from('accounts').select('*');
                 if (!accErr && accData && accData.length > 0) {
                     state.accounts = accData.map(a => a.name);
+                    accData.forEach(a => {
+                        if (a.options) {
+                            try {
+                                state.optionsPerAccount[a.name] = typeof a.options === 'string' ? JSON.parse(a.options) : a.options;
+                            } catch(err) {
+                                state.optionsPerAccount[a.name] = null;
+                            }
+                        }
+                    });
                 } else if (state.accounts.length === 0) {
                     state.accounts = [...DEFAULT_ACCOUNTS];
                 }
@@ -894,12 +875,16 @@
             const input = document.getElementById('newAccountName');
             const name = input.value.trim();
             if (name && !state.accounts.includes(name)) {
+                const defaultOpt = {
+                    in: JSON.parse(JSON.stringify(DEFAULT_IN_OPTIONS)),
+                    out: JSON.parse(JSON.stringify(DEFAULT_OUT_OPTIONS))
+                };
                 if (_supabase) {
-                    await _supabase.from('accounts').insert([{ name }]);
+                    await _supabase.from('accounts').insert([{ name, options: defaultOpt }]);
                 }
                 state.accounts.push(name);
+                state.optionsPerAccount[name] = defaultOpt;
                 state.currentAccount = name;
-                ensureAccountOptions();
                 renderAccountSelector();
                 renderDropdownOptions();
                 closeModal('addAccountModal');
@@ -908,7 +893,19 @@
             }
         }
 
+        function ensureAccountOptions() {
+            state.accounts.forEach(acc => {
+                if (!state.optionsPerAccount[acc]) {
+                    state.optionsPerAccount[acc] = {
+                        in: JSON.parse(JSON.stringify(DEFAULT_IN_OPTIONS)),
+                        out: JSON.parse(JSON.stringify(DEFAULT_OUT_OPTIONS))
+                    };
+                }
+            });
+        }
+
         function getCurrentAccountOptions() {
+            ensureAccountOptions();
             if (!state.optionsPerAccount[state.currentAccount]) {
                 state.optionsPerAccount[state.currentAccount] = {
                     in: JSON.parse(JSON.stringify(DEFAULT_IN_OPTIONS)),
@@ -951,7 +948,7 @@
             openModal('customOptionModal');
         }
 
-        function saveCustomOptions() {
+        async function saveCustomOptions() {
             const targetType = document.getElementById('customTargetType').value;
             const catArr = document.getElementById('customCategoriesInput').value.split(',').map(s => s.trim()).filter(Boolean);
             const cashArr = document.getElementById('customCashTypesInput').value.split(',').map(s => s.trim()).filter(Boolean);
@@ -966,7 +963,10 @@
                 if (cashArr.length) opt.out.cashTypes = cashArr;
             }
 
-            saveLocalOptions();
+            if (_supabase) {
+                await _supabase.from('accounts').update({ options: opt }).eq('name', state.currentAccount);
+            }
+
             renderDropdownOptions();
             closeModal('customOptionModal');
             refreshCurrentPage();
@@ -1792,6 +1792,7 @@
             return days[d.getDay()];
         }
 
+        function openModal(id) { document.getElementById(id).classList.add('hidden') ? null : document.getElementById(id).classList.remove('hidden'); }
         function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
