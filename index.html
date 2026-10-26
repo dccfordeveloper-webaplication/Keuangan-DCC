@@ -683,7 +683,7 @@
             accounts: [],
             transactions: [],
             assets: [],
-            optionsPerAccount: {}, // Disimpan ke tabel Supabase accounts
+            optionsPerAccount: {},
             microFilters: {},
             isBalanceHidden: false
         };
@@ -702,6 +702,9 @@
         let microChartInstances = {};
 
         window.onload = async function() {
+            // Bersihkan sisa cache lokal lama agar tersinkron sempurna dengan database
+            localStorage.removeItem('brimo_options_per_account');
+
             const today = new Date().toISOString().split('T')[0];
             if(document.getElementById('inDate')) document.getElementById('inDate').value = today;
             if(document.getElementById('outDate')) document.getElementById('outDate').value = today;
@@ -1306,7 +1309,6 @@
             });
         }
 
-        // FUNGSI RENDER GRAFIK MIKRO DENGAN FILTER INDIVIDUAL & SCROLLABLE TABLE
         function updateSingleMicroChart(key) {
             renderMicroCharts();
         }
@@ -1792,7 +1794,6 @@
             return days[d.getDay()];
         }
 
-        function openModal(id) { document.getElementById(id).classList.add('hidden') ? null : document.getElementById(id).classList.remove('hidden'); }
         function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
