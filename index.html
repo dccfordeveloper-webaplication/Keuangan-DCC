@@ -210,13 +210,13 @@
                             <div class="w-11 h-11 rounded-2xl bg-red-500 text-white flex items-center justify-center mb-1 shadow-md shadow-red-500/20 group-hover:scale-110 transition"><i class="fa-solid fa-circle-arrow-up text-lg"></i></div>
                             <span class="text-[11px] font-bold">Pengeluaran</span>
                         </button>
+                        <button onclick="navigateTo('tabungan')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
+                            <div class="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center mb-1 shadow-md shadow-amber-500/20 group-hover:scale-110 transition"><i class="fa-solid fa-wallet text-lg"></i></div>
+                            <span class="text-[11px] font-bold">Tabungan</span>
+                        </button>
                         <button onclick="navigateTo('grafik-makro')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
                             <div class="w-11 h-11 rounded-2xl bg-bri-blue text-white flex items-center justify-center mb-1 shadow-md shadow-blue-500/20 group-hover:scale-110 transition"><i class="fa-solid fa-chart-line text-lg"></i></div>
                             <span class="text-[11px] font-bold">Makro</span>
-                        </button>
-                        <button onclick="navigateTo('grafik-mikro')" class="p-3 bg-blue-50 dark:bg-gray-700/50 hover:bg-blue-100 dark:hover:bg-gray-700 rounded-2xl transition transform active:scale-95 flex flex-col items-center group shadow-sm">
-                            <div class="w-11 h-11 rounded-2xl bg-bri-orange text-white flex items-center justify-center mb-1 shadow-md shadow-orange-500/20 group-hover:scale-110 transition"><i class="fa-solid fa-chart-pie text-lg"></i></div>
-                            <span class="text-[11px] font-bold">Mikro</span>
                         </button>
                     </div>
                 </div>
@@ -374,7 +374,76 @@
                 </div>
             </section>
 
-            <!-- 4. LAMAN GRAFIK MAKRO -->
+            <!-- 4. LAMAN TABUNGAN & KAS -->
+            <section id="page-tabungan" class="page-section hidden space-y-5">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-bri-blue dark:text-blue-400 flex items-center gap-2"><i class="fa-solid fa-wallet"></i> Laman Tabungan & Kas</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Informasi saldo kas, mutasi rekening, dan transfer antar kas</p>
+                    </div>
+                    <button onclick="openModal('transferModal')" class="px-4 py-2.5 bg-bri-orange hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md transition transform active:scale-95">
+                        <i class="fa-solid fa-right-left text-sm"></i><span>Pindah Saldo (Transfer)</span>
+                    </button>
+                </div>
+
+                <!-- KARTU SALDO MASING-MASING KAS -->
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Akumulasi Saldo Rekening / Kas</h3>
+                    <div id="tabunganCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                </div>
+
+                <!-- RIWAYAT MUTASI REKENING & FILTER -->
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-clock-rotate-left"></i> Mutasi Rekening (Riwayat Transfer)
+                            </h3>
+                            <p class="text-[11px] text-gray-400">Catatan perpindahan saldo antar kas</p>
+                        </div>
+                        <button onclick="generateWhatsAppTransferReport()" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow transition transform active:scale-95">
+                            <i class="fa-brands fa-whatsapp text-sm"></i><span>Lapor WA Mutasi</span>
+                        </button>
+                    </div>
+
+                    <!-- FILTER MUTASI -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-xs">
+                        <div>
+                            <label class="block font-bold text-gray-500 mb-1">DARI TANGGAL</label>
+                            <input type="date" id="filterTransferStart" onchange="renderTransferTable()" class="w-full p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-gray-500 mb-1">SAMPAI TANGGAL</label>
+                            <input type="date" id="filterTransferEnd" onchange="renderTransferTable()" class="w-full p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-gray-500 mb-1">FILTER REKENING / KAS</label>
+                            <select id="filterTransferAccount" onchange="renderTransferTable()" class="w-full p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold">
+                                <option value="ALL">Semua Mutasi Kas</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- TABEL MUTASI ALA M-BANKING -->
+                    <div class="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                                    <th class="p-3 font-semibold">No</th>
+                                    <th class="p-3 font-semibold">Tanggal</th>
+                                    <th class="p-3 font-semibold">Keterangan / Jalur Transfer</th>
+                                    <th class="p-3 font-semibold text-center">Jenis</th>
+                                    <th class="p-3 font-semibold text-right">Nominal</th>
+                                    <th class="p-3 font-semibold text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transferTableBody" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. LAMAN GRAFIK MAKRO -->
             <section id="page-grafik-makro" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-center">
                     <div>
@@ -416,7 +485,7 @@
                 </div>
             </section>
 
-            <!-- 5. LAMAN GRAFIK MIKRO (SCROLLABLE & INDIVIDUAL FILTER) -->
+            <!-- 6. LAMAN GRAFIK MIKRO -->
             <section id="page-grafik-mikro" class="page-section hidden space-y-6">
                 <div class="flex justify-between items-center">
                     <div>
@@ -445,7 +514,7 @@
                 </div>
             </section>
 
-            <!-- 6. LAMAN ASET -->
+            <!-- 7. LAMAN ASET -->
             <section id="page-aset" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -502,7 +571,7 @@
                 </div>
             </section>
 
-            <!-- 7. LAMAN LAPORAN -->
+            <!-- 8. LAMAN LAPORAN -->
             <section id="page-laporan" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -564,8 +633,8 @@
                 <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-house text-sm"></i><span class="text-[9px] font-bold mt-0.5">Beranda</span></button>
                 <button onclick="navigateTo('pemasukan')" id="nav-pemasukan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-circle-arrow-down text-sm"></i><span class="text-[9px] font-bold mt-0.5">Masuk</span></button>
                 <button onclick="navigateTo('pengeluaran')" id="nav-pengeluaran" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-circle-arrow-up text-sm"></i><span class="text-[9px] font-bold mt-0.5">Keluar</span></button>
+                <button onclick="navigateTo('tabungan')" id="nav-tabungan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-wallet text-sm"></i><span class="text-[9px] font-bold mt-0.5">Tabungan</span></button>
                 <button onclick="navigateTo('grafik-makro')" id="nav-grafik-makro" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-line text-sm"></i><span class="text-[9px] font-bold mt-0.5">Makro</span></button>
-                <button onclick="navigateTo('grafik-mikro')" id="nav-grafik-mikro" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-pie text-sm"></i><span class="text-[9px] font-bold mt-0.5">Mikro</span></button>
                 <button onclick="navigateTo('aset')" id="nav-aset" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-boxes-packing text-sm"></i><span class="text-[9px] font-bold mt-0.5">Aset</span></button>
                 <button onclick="navigateTo('laporan')" id="nav-laporan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-file-lines text-sm"></i><span class="text-[9px] font-bold mt-0.5">Laporan</span></button>
             </div>
@@ -583,6 +652,39 @@
                     <button onclick="closeModal('waModal')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-xs font-bold rounded-xl transition">Tutup</button>
                     <button onclick="copyToClipboard()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1 shadow-md transition transform active:scale-95"><i class="fa-solid fa-copy"></i><span>Salin Teks WA</span></button>
                 </div>
+            </div>
+        </div>
+
+        <!-- MODAL TRANSFER / PINDAH SALDO -->
+        <div id="transferModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-bri-blue dark:text-blue-400 flex items-center gap-1.5"><i class="fa-solid fa-right-left"></i> Pindah Saldo (Transfer Antar Kas)</h3>
+                    <button onclick="closeModal('transferModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <form onsubmit="handleTransfer(event)" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold mb-1 text-gray-500">TANGGAL TRANSFER</label>
+                        <input type="date" id="transferDate" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1 text-gray-500">PILIH KAS ASAL (SUMBER DANA)</label>
+                        <select id="transferFrom" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold"></select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1 text-gray-500">PINDAH / TRANSFER KE KAS</label>
+                        <select id="transferTo" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold"></select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1 text-gray-500">NOMINAL (RP)</label>
+                        <input type="number" id="transferAmount" min="1" placeholder="0" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-bold">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1 text-gray-500">KETERANGAN / CATATAN</label>
+                        <input type="text" id="transferDesc" placeholder="Misal: Tarik tunai ke kasir" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-bri-orange hover:bg-orange-600 text-white font-bold rounded-xl text-xs shadow-md transition transform active:scale-95">Proses Pindah Saldo</button>
+                </form>
             </div>
         </div>
 
@@ -682,6 +784,7 @@
             currentAccount: "Lantai 1",
             accounts: [],
             transactions: [],
+            transfers: [],
             assets: [],
             optionsPerAccount: {},
             microFilters: {},
@@ -702,13 +805,13 @@
         let microChartInstances = {};
 
         window.onload = async function() {
-            // Bersihkan sisa cache lokal lama agar tersinkron sempurna dengan database
             localStorage.removeItem('brimo_options_per_account');
 
             const today = new Date().toISOString().split('T')[0];
             if(document.getElementById('inDate')) document.getElementById('inDate').value = today;
             if(document.getElementById('outDate')) document.getElementById('outDate').value = today;
             if(document.getElementById('assetDate')) document.getElementById('assetDate').value = today;
+            if(document.getElementById('transferDate')) document.getElementById('transferDate').value = today;
 
             if(localStorage.getItem('brimo_logged_in') === 'true') {
                 document.getElementById('loginScreen').classList.add('hidden');
@@ -737,7 +840,7 @@
             localStorage.removeItem('brimo_logged_in');
             document.getElementById('password').value = '';
             document.getElementById('mainApp').classList.add('hidden');
-            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginScreen').classList.add('hidden');
         }
 
         async function initApp() {
@@ -791,6 +894,20 @@
                     }));
                 }
 
+                // Tabel Transfer Saldo
+                const { data: trData, error: trErr } = await _supabase.from('transfers').select('*').order('id', { ascending: true });
+                if (!trErr && trData) {
+                    state.transfers = trData.map(tr => ({
+                        id: tr.id,
+                        account: tr.account,
+                        date: tr.date,
+                        fromCash: tr.from_cash,
+                        toCash: tr.to_cash,
+                        amount: Number(tr.amount),
+                        desc: tr.description
+                    }));
+                }
+
                 const { data: assetData, error: assetErr } = await _supabase.from('assets').select('*').order('id', { ascending: true });
                 if (!assetErr && assetData) {
                     state.assets = assetData.map(a => ({
@@ -839,6 +956,7 @@
                 btn.classList.add('text-gray-400');
             });
 
+            // Handle tabungan bottom nav if exists
             const activeNav = document.getElementById(`nav-${pageId}`);
             if(activeNav) {
                 activeNav.classList.remove('text-gray-400');
@@ -852,6 +970,7 @@
             if (currentPage === 'beranda') renderDashboard();
             if (currentPage === 'pemasukan') renderPemasukanTable();
             if (currentPage === 'pengeluaran') renderPengeluaranTable();
+            if (currentPage === 'tabungan') renderTabunganPage();
             if (currentPage === 'grafik-makro') renderChartPage();
             if (currentPage === 'grafik-mikro') renderMicroCharts();
             if (currentPage === 'aset') renderAssetTable();
@@ -932,6 +1051,21 @@
 
             const allCash = Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
             document.getElementById('filterCashType').innerHTML = `<option value="ALL">Semua Kas</option>` + allCash.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            // Transfer modal dropdowns
+            const transferFrom = document.getElementById('transferFrom');
+            const transferTo = document.getElementById('transferTo');
+            if(transferFrom && transferTo) {
+                const cashOpts = allCash.map(c => `<option value="${c}">${c}</option>`).join('');
+                transferFrom.innerHTML = cashOpts;
+                transferTo.innerHTML = cashOpts;
+            }
+
+            // Transfer filter dropdown
+            const filterTransferAcc = document.getElementById('filterTransferAccount');
+            if(filterTransferAcc) {
+                filterTransferAcc.innerHTML = `<option value="ALL">Semua Mutasi Kas</option>` + allCash.map(c => `<option value="${c}">${c}</option>`).join('');
+            }
         }
 
         function openCustomOptionModal(type) {
@@ -1055,6 +1189,13 @@
                     if (t.type === 'out') cashOut += totalVal;
                 });
 
+                // Perhitungkan transfer saldo masuk/keluar
+                const currentTransfers = state.transfers.filter(tr => tr.account === state.currentAccount);
+                currentTransfers.forEach(tr => {
+                    if(tr.toCash === cashName) cashIn += tr.amount;
+                    if(tr.fromCash === cashName) cashOut += tr.amount;
+                });
+
                 const cashBalance = cashIn - cashOut;
                 const recentFive = [...cashTx].reverse().slice(0, 5);
 
@@ -1112,6 +1253,199 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // ==========================================
+        // FITUR LAMAN TABUNGAN & PINDAH SALDO (TRANSFER)
+        // ==========================================
+        function renderTabunganPage() {
+            const container = document.getElementById('tabunganCardsContainer');
+            if(!container) return;
+
+            const opt = getCurrentAccountOptions();
+            const allCashTypes = Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
+            const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
+            const currentTransfers = state.transfers.filter(tr => tr.account === state.currentAccount);
+
+            if (allCashTypes.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-400 col-span-3 text-center">Belum ada kas terdaftar pada akun ini.</p>`;
+                return;
+            }
+
+            container.innerHTML = allCashTypes.map(cashName => {
+                let cashIn = 0;
+                let cashOut = 0;
+
+                currentAccTx.forEach(t => {
+                    const totalVal = t.qty * t.amount;
+                    if (t.cashType === cashName) {
+                        if (t.type === 'in') cashIn += totalVal;
+                        if (t.type === 'out') cashOut += totalVal;
+                    }
+                });
+
+                currentTransfers.forEach(tr => {
+                    if (tr.toCash === cashName) cashIn += tr.amount;
+                    if (tr.fromCash === cashName) cashOut += tr.amount;
+                });
+
+                const saldo = cashIn - cashOut;
+
+                return `
+                    <div class="bg-gradient-to-br from-white to-blue-50/50 dark:from-gray-800 dark:to-gray-800/80 p-4 rounded-2xl border border-blue-100 dark:border-gray-700 shadow-sm interactive-card space-y-3">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-bri-blue text-white flex items-center justify-center text-sm shadow">
+                                    <i class="fa-solid fa-vault"></i>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Rekening Kas</span>
+                                    <h4 class="font-extrabold text-sm text-gray-800 dark:text-white">${cashName}</h4>
+                                </div>
+                            </div>
+                            <span class="text-xs font-black ${saldo >= 0 ? 'text-bri-blue dark:text-blue-300' : 'text-red-500'} bg-blue-50 dark:bg-gray-700 px-2.5 py-1 rounded-xl">
+                                ${formatRp(saldo)}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100 dark:border-gray-700 text-[11px]">
+                            <div class="bg-green-50/70 dark:bg-green-900/20 p-2 rounded-xl">
+                                <span class="text-gray-400 block text-[10px]">Masuk / Masuk Transfer</span>
+                                <span class="font-bold text-green-600">${formatRp(cashIn)}</span>
+                            </div>
+                            <div class="bg-red-50/70 dark:bg-red-900/20 p-2 rounded-xl">
+                                <span class="text-gray-400 block text-[10px]">Keluar / Keluar Transfer</span>
+                                <span class="font-bold text-red-600">${formatRp(cashOut)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            renderTransferTable();
+        }
+
+        async function handleTransfer(e) {
+            e.preventDefault();
+            const date = document.getElementById('transferDate').value;
+            const fromCash = document.getElementById('transferFrom').value;
+            const toCash = document.getElementById('transferTo').value;
+            const amount = parseFloat(document.getElementById('transferAmount').value);
+            const desc = document.getElementById('transferDesc').value.trim();
+
+            if (fromCash === toCash) {
+                alert("Kas asal dan kas tujuan tidak boleh sama!");
+                return;
+            }
+
+            if (!_supabase) {
+                alert("Koneksi database belum siap!");
+                return;
+            }
+
+            const { data, error } = await _supabase.from('transfers').insert([{
+                account: state.currentAccount,
+                date: date,
+                from_cash: fromCash,
+                to_cash: toCash,
+                amount: amount,
+                description: desc
+            }]).select();
+
+            if (error) {
+                alert("Gagal melakukan transfer saldo: " + error.message);
+                return;
+            }
+
+            if (data && data.length > 0) {
+                state.transfers.push({
+                    id: data[0].id,
+                    account: state.currentAccount,
+                    date, fromCash, toCash, amount, desc
+                });
+            }
+
+            document.getElementById('transferAmount').value = '';
+            document.getElementById('transferDesc').value = '';
+            closeModal('transferModal');
+            renderTabunganPage();
+        }
+
+        async function deleteTransfer(id) {
+            if (_supabase) {
+                const { error } = await _supabase.from('transfers').delete().eq('id', id);
+                if (error) {
+                    alert("Gagal menghapus mutasi transfer: " + error.message);
+                    return;
+                }
+            }
+            state.transfers = state.transfers.filter(tr => tr.id !== id);
+            renderTabunganPage();
+        }
+
+        function renderTransferTable() {
+            const startDate = document.getElementById('filterTransferStart').value;
+            const endDate = document.getElementById('filterTransferEnd').value;
+            const filterAcc = document.getElementById('filterTransferAccount').value;
+
+            let list = state.transfers.filter(tr => tr.account === state.currentAccount);
+
+            if (startDate) list = list.filter(tr => tr.date >= startDate);
+            if (endDate) list = list.filter(tr => tr.date <= endDate);
+            if (filterAcc && filterAcc !== 'ALL') {
+                list = list.filter(tr => tr.fromCash === filterAcc || tr.toCash === filterAcc);
+            }
+
+            const tbody = document.getElementById('transferTableBody');
+            if(!tbody) return;
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">Belum ada riwayat mutasi transfer rekening</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = list.map((tr, idx) => {
+                return `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
+                        <td class="p-3">${idx + 1}</td>
+                        <td class="p-3 font-medium">${tr.date}</td>
+                        <td class="p-3 font-semibold">
+                            <div class="text-gray-800 dark:text-gray-200">${tr.desc}</div>
+                            <div class="text-[10px] text-bri-blue dark:text-blue-400 font-bold mt-0.5"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>${tr.fromCash} ➔ ${tr.toCash}</div>
+                        </td>
+                        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded bg-blue-100 text-bri-blue dark:bg-blue-900/40 text-[10px] font-bold">Transfer</span></td>
+                        <td class="p-3 text-right font-extrabold text-amber-600 dark:text-amber-400">${formatRp(tr.amount)}</td>
+                        <td class="p-3 text-center">
+                            <button onclick="deleteTransfer(${tr.id})" class="text-red-400 hover:text-red-600 transition transform active:scale-90"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function generateWhatsAppTransferReport() {
+            let currentDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            let reportText = `🏦 *MUTASI REKENING / TABUNGAN DCC* 🏦\n`;
+            reportText += `📅 Hari/Tgl : ${currentDate}\n`;
+            reportText += `🏢 Akun : ${state.currentAccount}\n`;
+            reportText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+            const currentTransfers = state.transfers.filter(tr => tr.account === state.currentAccount);
+            if (currentTransfers.length === 0) {
+                reportText += `_Belum ada catatan mutasi transfer rekening._\n\n`;
+            } else {
+                currentTransfers.forEach((tr, idx) => {
+                    reportText += `${idx + 1}. *${tr.date}*\n`;
+                    reportText += `   • Ket : ${tr.desc}\n`;
+                    reportText += `   • Jalur : ${tr.fromCash} ➔ ${tr.toCash}\n`;
+                    reportText += `   • Nominal : ${formatRp(tr.amount)}\n\n`;
+                });
+            }
+
+            reportText += `━━━━━━━━━━━━━━━━━━━━━\n`;
+            reportText += `_🤖 Diterbitkan otomatis oleh Sistem Keuangan Sektor DCC_`;
+
+            document.getElementById('waTextContent').innerText = reportText;
+            openModal('waModal');
         }
 
         function toggleBalanceVisibility() {
@@ -1309,10 +1643,6 @@
             });
         }
 
-        function updateSingleMicroChart(key) {
-            renderMicroCharts();
-        }
-
         function renderMicroCharts() {
             const periodDays = parseInt(document.getElementById('microPeriod').value);
             const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
@@ -1326,7 +1656,6 @@
             Object.values(microChartInstances).forEach(c => c.destroy());
             microChartInstances = {};
 
-            // 1. Render Mikro Pemasukan
             const inContainer = document.getElementById('microInContainer');
             inContainer.innerHTML = '';
 
@@ -1335,7 +1664,6 @@
                 const selectedDays = parseInt(state.microFilters[key] || periodDays);
 
                 let catTx = currentAccTx.filter(t => t.type === 'in' && t.category === cat);
-                
                 if (selectedDays > 0) {
                     const cutoff = getFormattedDate(-selectedDays + 1);
                     catTx = catTx.filter(t => t.date >= cutoff);
@@ -1425,7 +1753,6 @@
                 });
             });
 
-            // 2. Render Mikro Pengeluaran
             const outContainer = document.getElementById('microOutContainer');
             outContainer.innerHTML = '';
 
@@ -1434,7 +1761,6 @@
                 const selectedDays = parseInt(state.microFilters[key] || periodDays);
 
                 let catTx = currentAccTx.filter(t => t.type === 'out' && t.category === cat);
-                
                 if (selectedDays > 0) {
                     const cutoff = getFormattedDate(-selectedDays + 1);
                     catTx = catTx.filter(t => t.date >= cutoff);
