@@ -386,13 +386,11 @@
                     </button>
                 </div>
 
-                <!-- KARTU SALDO MASING-MASING KAS -->
                 <div>
                     <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Akumulasi Saldo Rekening / Kas</h3>
                     <div id="tabunganCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
                 </div>
 
-                <!-- RIWAYAT MUTASI REKENING & FILTER -->
                 <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                         <div>
@@ -406,7 +404,6 @@
                         </button>
                     </div>
 
-                    <!-- FILTER MUTASI -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-xs">
                         <div>
                             <label class="block font-bold text-gray-500 mb-1">DARI TANGGAL</label>
@@ -424,7 +421,6 @@
                         </div>
                     </div>
 
-                    <!-- TABEL MUTASI ALA M-BANKING -->
                     <div class="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
                         <table class="w-full text-left border-collapse text-xs">
                             <thead>
@@ -627,7 +623,7 @@
 
         </main>
 
-        <!-- BOTTOM NAVIGATION BAR -->
+        <!-- BOTTOM NAVIGATION BAR (LENGKAP BERANDA, MASUK, KELUAR, TABUNGAN, MAKRO, MIKRO, ASET, LAPORAN) -->
         <nav class="fixed bottom-0 left-0 right-0 max-w-md md:max-w-5xl mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 px-1.5 py-2 shadow-2xl">
             <div class="flex justify-around items-center">
                 <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-house text-sm"></i><span class="text-[9px] font-bold mt-0.5">Beranda</span></button>
@@ -635,6 +631,7 @@
                 <button onclick="navigateTo('pengeluaran')" id="nav-pengeluaran" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-circle-arrow-up text-sm"></i><span class="text-[9px] font-bold mt-0.5">Keluar</span></button>
                 <button onclick="navigateTo('tabungan')" id="nav-tabungan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-wallet text-sm"></i><span class="text-[9px] font-bold mt-0.5">Tabungan</span></button>
                 <button onclick="navigateTo('grafik-makro')" id="nav-grafik-makro" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-line text-sm"></i><span class="text-[9px] font-bold mt-0.5">Makro</span></button>
+                <button onclick="navigateTo('grafik-mikro')" id="nav-grafik-mikro" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-pie text-sm"></i><span class="text-[9px] font-bold mt-0.5">Mikro</span></button>
                 <button onclick="navigateTo('aset')" id="nav-aset" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-boxes-packing text-sm"></i><span class="text-[9px] font-bold mt-0.5">Aset</span></button>
                 <button onclick="navigateTo('laporan')" id="nav-laporan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-file-lines text-sm"></i><span class="text-[9px] font-bold mt-0.5">Laporan</span></button>
             </div>
@@ -840,7 +837,7 @@
             localStorage.removeItem('brimo_logged_in');
             document.getElementById('password').value = '';
             document.getElementById('mainApp').classList.add('hidden');
-            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
         }
 
         async function initApp() {
@@ -894,7 +891,6 @@
                     }));
                 }
 
-                // Tabel Transfer Saldo
                 const { data: trData, error: trErr } = await _supabase.from('transfers').select('*').order('id', { ascending: true });
                 if (!trErr && trData) {
                     state.transfers = trData.map(tr => ({
@@ -956,7 +952,6 @@
                 btn.classList.add('text-gray-400');
             });
 
-            // Handle tabungan bottom nav if exists
             const activeNav = document.getElementById(`nav-${pageId}`);
             if(activeNav) {
                 activeNav.classList.remove('text-gray-400');
@@ -1052,7 +1047,6 @@
             const allCash = Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
             document.getElementById('filterCashType').innerHTML = `<option value="ALL">Semua Kas</option>` + allCash.map(c => `<option value="${c}">${c}</option>`).join('');
 
-            // Transfer modal dropdowns
             const transferFrom = document.getElementById('transferFrom');
             const transferTo = document.getElementById('transferTo');
             if(transferFrom && transferTo) {
@@ -1061,7 +1055,6 @@
                 transferTo.innerHTML = cashOpts;
             }
 
-            // Transfer filter dropdown
             const filterTransferAcc = document.getElementById('filterTransferAccount');
             if(filterTransferAcc) {
                 filterTransferAcc.innerHTML = `<option value="ALL">Semua Mutasi Kas</option>` + allCash.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -1189,7 +1182,6 @@
                     if (t.type === 'out') cashOut += totalVal;
                 });
 
-                // Perhitungkan transfer saldo masuk/keluar
                 const currentTransfers = state.transfers.filter(tr => tr.account === state.currentAccount);
                 currentTransfers.forEach(tr => {
                     if(tr.toCash === cashName) cashIn += tr.amount;
@@ -1255,9 +1247,6 @@
             }).join('');
         }
 
-        // ==========================================
-        // FITUR LAMAN TABUNGAN & PINDAH SALDO (TRANSFER)
-        // ==========================================
         function renderTabunganPage() {
             const container = document.getElementById('tabunganCardsContainer');
             if(!container) return;
