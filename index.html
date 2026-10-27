@@ -238,7 +238,7 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400">Pencatatan harian uang masuk sektor</p>
                     </div>
                     <button onclick="openCustomOptionModal('in')" class="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded-xl hover:bg-green-100 transition transform active:scale-95 flex items-center space-x-1 border border-green-200 dark:border-green-800 shadow-sm">
-                        <i class="fa-solid fa-sliders"></i><span>Opsi Pemasukan</span>
+                        <i class="fa-solid fa-sliders"></i><span>Opsi Pemasukan & Kas</span>
                     </button>
                 </div>
 
@@ -310,7 +310,7 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400">Pencatatan harian uang keluar sektor</p>
                     </div>
                     <button onclick="openCustomOptionModal('out')" class="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold rounded-xl hover:bg-red-100 transition transform active:scale-95 flex items-center space-x-1 border border-red-200 dark:border-red-800 shadow-sm">
-                        <i class="fa-solid fa-sliders"></i><span>Opsi Pengeluaran</span>
+                        <i class="fa-solid fa-sliders"></i><span>Opsi Pengeluaran & Kas</span>
                     </button>
                 </div>
 
@@ -623,7 +623,7 @@
 
         </main>
 
-        <!-- BOTTOM NAVIGATION BAR (LENGKAP BERANDA, MASUK, KELUAR, TABUNGAN, MAKRO, MIKRO, ASET, LAPORAN) -->
+        <!-- BOTTOM NAVIGATION BAR -->
         <nav class="fixed bottom-0 left-0 right-0 max-w-md md:max-w-5xl mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-40 px-1.5 py-2 shadow-2xl">
             <div class="flex justify-around items-center">
                 <button onclick="navigateTo('beranda')" id="nav-beranda" class="nav-btn flex flex-col items-center p-1 text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-house text-sm"></i><span class="text-[9px] font-bold mt-0.5">Beranda</span></button>
@@ -694,11 +694,11 @@
                 <input type="hidden" id="customTargetType">
                 <div class="space-y-3 text-xs">
                     <div>
-                        <label class="block font-semibold mb-1 text-gray-500">Pilihan Kategori (Pisahkan koma)</label>
+                        <label class="block font-semibold mb-1 text-gray-500" id="customLabelCat">Pilihan Kategori (Pisahkan koma)</label>
                         <input type="text" id="customCategoriesInput" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
                     </div>
                     <div>
-                        <label class="block font-semibold mb-1 text-gray-500">Pilihan Kas Asal (Pisahkan koma)</label>
+                        <label class="block font-semibold mb-1 text-gray-500" id="customLabelCash">Pilihan Kas Asal (Pisahkan koma)</label>
                         <input type="text" id="customCashTypesInput" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
                     </div>
                 </div>
@@ -802,8 +802,6 @@
         let microChartInstances = {};
 
         window.onload = async function() {
-            localStorage.removeItem('brimo_options_per_account');
-
             const today = new Date().toISOString().split('T')[0];
             if(document.getElementById('inDate')) document.getElementById('inDate').value = today;
             if(document.getElementById('outDate')) document.getElementById('outDate').value = today;
@@ -1044,34 +1042,45 @@
             document.getElementById('filterInType').innerHTML = `<option value="ALL">Semua Jenis Pemasukan</option>` + opt.in.categories.map(c => `<option value="${c}">${c}</option>`).join('');
             document.getElementById('filterOutType').innerHTML = `<option value="ALL">Semua Jenis Pengeluaran</option>` + opt.out.categories.map(c => `<option value="${c}">${c}</option>`).join('');
 
-            const allCash = Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
-            document.getElementById('filterCashType').innerHTML = `<option value="ALL">Semua Kas</option>` + allCash.map(c => `<option value="${c}">${c}</option>`).join('');
-
+            // Kas asal kini mandiri per jenis transaksi (Masuk vs Keluar) atau digabung sesuai tab masing-masing
+            const activeCashTypes = getCurrentActiveCashTypes();
+            
             const transferFrom = document.getElementById('transferFrom');
             const transferTo = document.getElementById('transferTo');
             if(transferFrom && transferTo) {
-                const cashOpts = allCash.map(c => `<option value="${c}">${c}</option>`).join('');
+                const cashOpts = activeCashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
                 transferFrom.innerHTML = cashOpts;
                 transferTo.innerHTML = cashOpts;
             }
 
             const filterTransferAcc = document.getElementById('filterTransferAccount');
             if(filterTransferAcc) {
-                filterTransferAcc.innerHTML = `<option value="ALL">Semua Mutasi Kas</option>` + allCash.map(c => `<option value="${c}">${c}</option>`).join('');
+                filterTransferAcc.innerHTML = `<option value="ALL">Semua Mutasi Kas</option>` + activeCashTypes.map(c => `<option value="${c}">${c}</option>`).join('');
             }
+        }
+
+        function getCurrentActiveCashTypes() {
+            const opt = getCurrentAccountOptions();
+            return Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
         }
 
         function openCustomOptionModal(type) {
             document.getElementById('customTargetType').value = type;
             const title = document.getElementById('customOptionModalTitle');
+            const labelCat = document.getElementById('customLabelCat');
+            const labelCash = document.getElementById('customLabelCash');
             const opt = getCurrentAccountOptions();
 
             if (type === 'in') {
-                title.innerText = `Custom Opsi Pemasukan (${state.currentAccount})`;
+                title.innerText = `Custom Opsi Pemasukan & Kas (${state.currentAccount})`;
+                labelCat.innerText = "Pilihan Kategori Pemasukan (Pisahkan koma)";
+                labelCash.innerText = "Pilihan Kas Asal Masuk (Pisahkan koma)";
                 document.getElementById('customCategoriesInput').value = opt.in.categories.join(', ');
                 document.getElementById('customCashTypesInput').value = opt.in.cashTypes.join(', ');
             } else {
-                title.innerText = `Custom Opsi Pengeluaran (${state.currentAccount})`;
+                title.innerText = `Custom Opsi Pengeluaran & Kas (${state.currentAccount})`;
+                labelCat.innerText = "Pilihan Kategori Pengeluaran (Pisahkan koma)";
+                labelCash.innerText = "Pilihan Kas Asal Keluar (Pisahkan koma)";
                 document.getElementById('customCategoriesInput').value = opt.out.categories.join(', ');
                 document.getElementById('customCashTypesInput').value = opt.out.cashTypes.join(', ');
             }
@@ -1162,8 +1171,7 @@
             const container = document.getElementById('cashTypeTablesContainer');
             if(!container) return;
 
-            const opt = getCurrentAccountOptions();
-            const allCashTypes = Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
+            const allCashTypes = getCurrentActiveCashTypes();
 
             if (allCashTypes.length === 0) {
                 container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center">Belum ada Kas Asal terdaftar untuk akun ini.</p>`;
@@ -1251,8 +1259,7 @@
             const container = document.getElementById('tabunganCardsContainer');
             if(!container) return;
 
-            const opt = getCurrentAccountOptions();
-            const allCashTypes = Array.from(new Set([...opt.in.cashTypes, ...opt.out.cashTypes]));
+            const allCashTypes = getCurrentActiveCashTypes();
             const currentAccTx = state.transactions.filter(t => t.account === state.currentAccount);
             const currentTransfers = state.transfers.filter(tr => tr.account === state.currentAccount);
 
