@@ -99,6 +99,7 @@
                         <div class="flex items-center space-x-1.5">
                             <p class="text-[11px] text-blue-200 font-medium">Admin,</p>
                             <span id="syncIndicator" class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse" title="Tersambung ke Cloud"></span>
+                            <button type="button" id="syncText" onclick="syncNow(true)" class="text-[9px] text-blue-200 font-semibold hover:underline" title="Klik untuk sinkron sekarang">Menyambung...</button>
                         </div>
                         <h1 class="font-bold text-sm md:text-base leading-tight">Bendahara DCC</h1>
                     </div>
@@ -908,12 +909,24 @@
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtZm1sbW9nbmt0emhraHBoanViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NzYzMjIsImV4cCI6MjEwODI1MjMyMn0.QT3wGcLC5Z-8trJVeCfWfDZJs5PCEe3FQxVd_xqH_uY";
 
         let _supabase = null;
-        try {
-            if (window.supabase && typeof window.supabase.createClient === 'function') {
-                _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        function initSupabaseClient() {
+            if (_supabase) return _supabase;
+            try {
+                if (window.supabase && typeof window.supabase.createClient === 'function') {
+                    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+            } catch (e) {
+                console.error("Gagal inisialisasi Supabase client:", e);
             }
-        } catch (e) {
-            console.error("Gagal inisialisasi Supabase client:", e);
+            return _supabase;
+        }
+        initSupabaseClient();
+
+        function defaultAccountOptions() {
+            return {
+                in: JSON.parse(JSON.stringify(DEFAULT_IN_OPTIONS)),
+                out: JSON.parse(JSON.stringify(DEFAULT_OUT_OPTIONS))
+            };
         }
 
         let state = {
@@ -983,8 +996,11 @@
         }
 
         async function initApp() {
+            initSupabaseClient();
             await fetchAllFromSupabase();
+            if (state.accounts.length === 0) state.accounts = [...DEFAULT_ACCOUNTS];
             setupRealtimeSync();
+            startAutoSync();
             renderAccountSelector();
             ensureAccountOptions();
             renderDropdownOptions();
@@ -992,109 +1008,175 @@
             refreshCurrentPage();
         }
 
-        async function fetchAllFromSupabase() {
-            if (!_supabase) {
-                console.warn("Supabase tidak aktif.");
-                return;
-            }
-            try {
-                const indicator = document.getElementById('syncIndicator');
-                if(indicator) indicator.className = "inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse";
+        // ==========================================
+        // SINKRONISASI CLOUD (SUPABASE) - sumber data utama
+        // ==========================================
+        function setSyncStatus(status, msg) {
+            const dot = document.getElementById('syncIndicator');
+            const txt = document.getElementById('syncText');
+            const map = {
+                ok:      ['bg-green-400', 'Tersinkron', 'Tersambung ke Cloud. Data sama di semua perangkat.'],
+                syncing: ['bg-amber-400 animate-pulse', 'Menyinkron...', 'Sedang menyinkronkan data...'],
+                error:   ['bg-red-500', 'Gagal sinkron', msg || 'Gagal terhubung ke database']
+            };
+            const [cls, label, title] = map[status] || map.error;
+            if (dot) { dot.className = 'inline-block w-2 h-2 rounded-full ' + cls; dot.title = title; }
+            if (txt) { txt.innerText = label; txt.title = title + ' (klik untuk sinkron ulang)'; }
+            if (status === 'error') console.error('[Sinkron]', msg);
+        }
 
-                const { data: accData, error: accErr } = await _supabase.from('accounts').select('*');
-                if (!accErr && accData && accData.length > 0) {
-                    state.accounts = accData.map(a => a.name);
-                    accData.forEach(a => {
-                        if (a.options) {
-                            try {
-                                state.optionsPerAccount[a.name] = typeof a.options === 'string' ? JSON.parse(a.options) : a.options;
-                            } catch(err) {
-                                state.optionsPerAccount[a.name] = null;
-                            }
-                        }
-                    });
-                } else if (state.accounts.length === 0) {
-                    state.accounts = [...DEFAULT_ACCOUNTS];
+        function validOptions(o) {
+            return o && o.in && o.out && Array.isArray(o.in.categories) && Array.isArray(o.in.cashTypes)
+                && Array.isArray(o.out.categories) && Array.isArray(o.out.cashTypes);
+        }
+
+        // Mengembalikan true jika berhasil. Jika gagal, state lokal TIDAK diubah.
+        async function fetchAllFromSupabase() {
+            if (!initSupabaseClient()) {
+                setSyncStatus('error', 'Library Supabase tidak termuat. Periksa koneksi internet lalu muat ulang halaman.');
+                return false;
+            }
+            setSyncStatus('syncing');
+            try {
+                const results = await Promise.all([
+                    _supabase.from('accounts').select('*').order('id', { ascending: true }),
+                    _supabase.from('transactions').select('*').order('id', { ascending: true }),
+                    _supabase.from('transfers').select('*').order('id', { ascending: true }),
+                    _supabase.from('assets').select('*').order('id', { ascending: true }),
+                    _supabase.from('hpp_plans').select('*').order('id', { ascending: true })
+                ]);
+                const names = ['accounts', 'transactions', 'transfers', 'assets', 'hpp_plans'];
+                const failed = results.map((r, i) => r.error ? `${names[i]}: ${r.error.message}` : null).filter(Boolean);
+                if (failed.length) {
+                    setSyncStatus('error', failed.join(' | '));
+                    return false;
+                }
+                const [accR, txR, trR, assetR, hppR] = results;
+
+                state.transactions = (txR.data || []).map(t => ({
+                    id: t.id, account: t.account, type: t.type, date: t.date, desc: t.description,
+                    qty: t.qty, category: t.category, cashType: t.cash_type, amount: Number(t.amount)
+                }));
+                state.transfers = (trR.data || []).map(tr => ({
+                    id: tr.id, account: tr.account, date: tr.date, fromCash: tr.from_cash,
+                    toCash: tr.to_cash, amount: Number(tr.amount), desc: tr.description
+                }));
+                state.assets = (assetR.data || []).map(a => ({
+                    id: a.id, account: a.account, date: a.date, name: a.name, type: a.type,
+                    qty: a.qty, price: Number(a.price)
+                }));
+                state.hppPlans = (hppR.data || []).map(h => {
+                    let items = h.items;
+                    if (typeof items === 'string') { try { items = JSON.parse(items); } catch (e) { items = []; } }
+                    return {
+                        id: h.id, account: h.account, desc: h.description, date: h.date, note: h.note,
+                        operationalCost: Number(h.operational_cost || 0), items: items || []
+                    };
+                });
+
+                // Akun: pastikan semua akun yang dipakai data (dan akun bawaan saat tabel kosong) ada di cloud
+                const accRows = accR.data || [];
+                const dbNames = accRows.map(a => a.name);
+                const missing = [];
+                if (dbNames.length === 0) DEFAULT_ACCOUNTS.forEach(n => missing.push(n));
+                [...state.transactions, ...state.transfers, ...state.assets, ...state.hppPlans].forEach(r => {
+                    if (r.account && !dbNames.includes(r.account) && !missing.includes(r.account)) missing.push(r.account);
+                });
+
+                const optionsMap = {};
+                accRows.forEach(a => {
+                    let o = a.options;
+                    if (typeof o === 'string') { try { o = JSON.parse(o); } catch (e) { o = null; } }
+                    if (validOptions(o)) optionsMap[a.name] = o;
+                });
+
+                if (missing.length) {
+                    const rows = missing.map(name => ({ name, options: defaultAccountOptions() }));
+                    const { error: seedErr } = await _supabase.from('accounts')
+                        .upsert(rows, { onConflict: 'name', ignoreDuplicates: true });
+                    if (seedErr) console.warn('Gagal mendaftarkan akun ke cloud:', seedErr.message);
+                    missing.forEach(n => { dbNames.push(n); optionsMap[n] = defaultAccountOptions(); });
                 }
 
+                state.accounts = dbNames;
+                state.optionsPerAccount = optionsMap;
                 ensureAccountOptions();
 
-                const { data: txData, error: txErr } = await _supabase.from('transactions').select('*').order('id', { ascending: true });
-                if (!txErr && txData) {
-                    state.transactions = txData.map(t => ({
-                        id: t.id,
-                        account: t.account,
-                        type: t.type,
-                        date: t.date,
-                        desc: t.description,
-                        qty: t.qty,
-                        category: t.category,
-                        cashType: t.cash_type,
-                        amount: Number(t.amount)
-                    }));
-                }
-
-                const { data: trData, error: trErr } = await _supabase.from('transfers').select('*').order('id', { ascending: true });
-                if (!trErr && trData) {
-                    state.transfers = trData.map(tr => ({
-                        id: tr.id,
-                        account: tr.account,
-                        date: tr.date,
-                        fromCash: tr.from_cash,
-                        toCash: tr.to_cash,
-                        amount: Number(tr.amount),
-                        desc: tr.description
-                    }));
-                }
-
-                const { data: assetData, error: assetErr } = await _supabase.from('assets').select('*').order('id', { ascending: true });
-                if (!assetErr && assetData) {
-                    state.assets = assetData.map(a => ({
-                        id: a.id,
-                        account: a.account,
-                        date: a.date,
-                        name: a.name,
-                        type: a.type,
-                        qty: a.qty,
-                        price: Number(a.price)
-                    }));
-                }
-
-                const { data: hppData, error: hppErr } = await _supabase.from('hpp_plans').select('*').order('id', { ascending: true });
-                if (!hppErr && hppData) {
-                    state.hppPlans = hppData.map(h => ({
-                        id: h.id,
-                        account: h.account,
-                        desc: h.description,
-                        date: h.date,
-                        note: h.note,
-                        operationalCost: Number(h.operational_cost || 0),
-                        items: typeof h.items === 'string' ? JSON.parse(h.items) : h.items
-                    }));
-                }
+                setSyncStatus('ok');
+                return true;
             } catch (err) {
-                console.error("Gagal sinkronisasi cloud:", err);
-                const indicator = document.getElementById('syncIndicator');
-                if(indicator) indicator.className = "inline-block w-2 h-2 bg-red-500 rounded-full";
+                setSyncStatus('error', err && err.message ? err.message : String(err));
+                return false;
             }
         }
 
+        function stateSignature() {
+            return JSON.stringify([state.accounts, state.optionsPerAccount, state.transactions,
+                state.transfers, state.assets, state.hppPlans]);
+        }
+
+        // Render ulang setelah data berubah dari perangkat lain, tanpa mereset pilihan dropdown yang sedang dipakai
+        function rerenderAfterSync() {
+            const ids = ['inCategory', 'inCashType', 'outCategory', 'outCashType', 'filterInType',
+                'filterOutType', 'transferFrom', 'transferTo', 'filterTransferAccount'];
+            const saved = {};
+            ids.forEach(id => { const el = document.getElementById(id); if (el) saved[id] = el.value; });
+            renderAccountSelector();
+            ensureAccountOptions();
+            renderDropdownOptions();
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && saved[id] !== undefined && Array.from(el.options).some(o => o.value === saved[id])) {
+                    el.value = saved[id];
+                }
+            });
+            refreshCurrentPage();
+        }
+
+        let _syncBusy = false, _syncPending = false, _syncTimer = null, _autoSyncStarted = false;
+
+        async function syncNow(force) {
+            if (_syncBusy) { _syncPending = true; return; }
+            _syncBusy = true;
+            try {
+                const before = stateSignature();
+                const ok = await fetchAllFromSupabase();
+                if (ok && (force === true || before !== stateSignature())) rerenderAfterSync();
+            } finally {
+                _syncBusy = false;
+                if (_syncPending) { _syncPending = false; scheduleSync(); }
+            }
+        }
+
+        function scheduleSync() {
+            clearTimeout(_syncTimer);
+            _syncTimer = setTimeout(() => syncNow(), 400);
+        }
+
         function setupRealtimeSync() {
-            if (!_supabase) return;
+            if (!initSupabaseClient()) return;
             try {
                 _supabase
                     .channel('public-db-changes')
-                    .on('postgres_changes', { event: '*', schema: 'public' }, async () => {
-                        await fetchAllFromSupabase();
-                        renderAccountSelector();
-                        ensureAccountOptions();
-                        renderDropdownOptions();
-                        refreshCurrentPage();
-                    })
-                    .subscribe();
+                    .on('postgres_changes', { event: '*', schema: 'public' }, () => scheduleSync())
+                    .subscribe((status) => {
+                        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                            console.warn('Realtime tidak aktif, memakai sinkron berkala:', status);
+                        }
+                    });
             } catch (e) {
                 console.error("Gagal mengaktifkan Realtime listener:", e);
             }
+        }
+
+        // Cadangan bila Realtime terputus: sinkron berkala + saat kembali ke aplikasi / online lagi
+        function startAutoSync() {
+            if (_autoSyncStarted) return;
+            _autoSyncStarted = true;
+            setInterval(() => { if (!document.hidden) syncNow(); }, 15000);
+            document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
+            window.addEventListener('focus', () => syncNow());
+            window.addEventListener('online', () => syncNow());
         }
 
         let currentPage = 'beranda';
@@ -1149,12 +1231,15 @@
             const input = document.getElementById('newAccountName');
             const name = input.value.trim();
             if (name && !state.accounts.includes(name)) {
-                const defaultOpt = {
-                    in: JSON.parse(JSON.stringify(DEFAULT_IN_OPTIONS)),
-                    out: JSON.parse(JSON.stringify(DEFAULT_OUT_OPTIONS))
-                };
-                if (_supabase) {
-                    await _supabase.from('accounts').insert([{ name, options: defaultOpt }]);
+                const defaultOpt = defaultAccountOptions();
+                if (!initSupabaseClient()) {
+                    alert("Koneksi database belum siap! Akun tidak disimpan.");
+                    return;
+                }
+                const { error: accErr } = await _supabase.from('accounts').insert([{ name, options: defaultOpt }]);
+                if (accErr) {
+                    alert("Gagal menambah akun ke database: " + accErr.message);
+                    return;
                 }
                 state.accounts.push(name);
                 state.optionsPerAccount[name] = defaultOpt;
@@ -1260,8 +1345,17 @@
                 if (cashArr.length) opt.out.cashTypes = cashArr;
             }
 
-            if (_supabase) {
-                await _supabase.from('accounts').update({ options: opt }).eq('name', state.currentAccount);
+            if (!initSupabaseClient()) {
+                alert("Koneksi database belum siap! Opsi tidak disimpan.");
+                await syncNow(true);
+                return;
+            }
+            const { error: optErr } = await _supabase.from('accounts')
+                .upsert([{ name: state.currentAccount, options: opt }], { onConflict: 'name' });
+            if (optErr) {
+                alert("Gagal menyimpan opsi ke database: " + optErr.message);
+                await syncNow(true);
+                return;
             }
 
             renderDropdownOptions();
@@ -1496,8 +1590,29 @@
                 return;
             }
 
+            if (!initSupabaseClient()) {
+                alert("Koneksi database belum siap! Rancangan HPP tidak disimpan.");
+                return;
+            }
+
+            const { data, error } = await _supabase.from('hpp_plans').insert([{
+                account: state.currentAccount,
+                description: desc,
+                date: date,
+                operational_cost: operationalCost,
+                note: note,
+                items: JSON.parse(JSON.stringify(hppDraftItems))
+            }]).select();
+
+            if (error || !data || data.length === 0) {
+                const reason = error ? error.message : 'database tidak memberi respons';
+                setSyncStatus('error', 'hpp_plans: ' + reason);
+                alert("Gagal menyimpan rancangan HPP ke database: " + reason);
+                return;
+            }
+
             const newPlan = {
-                id: Date.now(),
+                id: data[0].id,
                 account: state.currentAccount,
                 desc: desc,
                 date: date,
@@ -1506,21 +1621,6 @@
                 items: JSON.parse(JSON.stringify(hppDraftItems))
             };
 
-            if (_supabase) {
-                const { data, error } = await _supabase.from('hpp_plans').insert([{
-                    account: state.currentAccount,
-                    description: desc,
-                    date: date,
-                    operational_cost: operationalCost,
-                    note: note,
-                    items: hppDraftItems
-                }]).select();
-
-                if (!error && data && data.length > 0) {
-                    newPlan.id = data[0].id;
-                }
-            }
-
             state.hppPlans.push(newPlan);
             resetHppForm();
             renderHppPage();
@@ -1528,7 +1628,11 @@
 
         async function deleteHppPlan(id) {
             if (_supabase) {
-                await _supabase.from('hpp_plans').delete().eq('id', id);
+                const { error } = await _supabase.from('hpp_plans').delete().eq('id', id);
+                if (error) {
+                    alert("Gagal menghapus rancangan HPP: " + error.message);
+                    return;
+                }
             }
             state.hppPlans = state.hppPlans.filter(h => h.id !== id);
             renderHppPage();
