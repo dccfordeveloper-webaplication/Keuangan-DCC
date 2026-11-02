@@ -32,6 +32,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Supabase JS Client SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- html2canvas & jsPDF CDN untuk Ekspor Langsung JPG & PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -441,72 +444,92 @@
 
             <!-- 5. LAMAN GRAFIK MAKRO -->
             <section id="page-grafik-makro" class="page-section hidden space-y-4">
-                <div class="flex justify-between items-center">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h2 class="text-lg font-bold">Grafik Makro Keuangan</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Diagram Omzet, Profit & Pengeluaran Akun Aktif</p>
                     </div>
-                    <select id="chartPeriod" onchange="updateChartData()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
-                        <option value="7">7 Hari Terakhir</option>
-                        <option value="30">30 Hari Terakhir</option>
-                        <option value="365">1 Tahun</option>
-                    </select>
-                </div>
-
-                <div id="insightAlert" class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 flex items-start space-x-3 text-xs shadow-sm">
-                    <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 text-base mt-0.5 animate-bounce"></i>
-                    <div>
-                        <h4 class="font-bold text-amber-800 dark:text-amber-300">Indikator Performa Otomatis</h4>
-                        <p id="insightText" class="text-amber-700 dark:text-amber-200 mt-0.5">Menganalisis alur kas akun...</p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="chartPeriod" onchange="updateChartData()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
+                            <option value="7">7 Hari Terakhir</option>
+                            <option value="30">30 Hari Terakhir</option>
+                            <option value="365">1 Tahun</option>
+                        </select>
+                        <button onclick="downloadElementDirect('macroExportArea', 'jpg', 'Grafik_Makro')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow transition transform active:scale-95 flex items-center space-x-1">
+                            <i class="fa-solid fa-file-image"></i><span>Unduh JPG</span>
+                        </button>
+                        <button onclick="downloadElementDirect('macroExportArea', 'pdf', 'Grafik_Makro')" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow transition transform active:scale-95 flex items-center space-x-1">
+                            <i class="fa-solid fa-file-pdf"></i><span>Unduh PDF</span>
+                        </button>
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
-                    <canvas id="financialChart" class="w-full h-64"></canvas>
-                </div>
+                <div id="macroExportArea" class="space-y-4 bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700">
+                    <div id="insightAlert" class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 flex items-start space-x-3 text-xs shadow-sm">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 text-base mt-0.5 animate-bounce"></i>
+                        <div>
+                            <h4 class="font-bold text-amber-800 dark:text-amber-300">Indikator Performa Otomatis</h4>
+                            <p id="insightText" class="text-amber-700 dark:text-amber-200 mt-0.5">Menganalisis alur kas akun...</p>
+                        </div>
+                    </div>
 
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="bg-blue-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
-                        <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">OMZET KOTOR</span>
-                        <span class="text-xs font-black text-bri-blue dark:text-blue-400" id="chartOmzet">Rp 0</span>
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
+                        <canvas id="financialChart" class="w-full h-64"></canvas>
                     </div>
-                    <div class="bg-green-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
-                        <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">LABA BERSIH/PROFIT</span>
-                        <span class="text-xs font-black text-green-600 dark:text-green-400" id="chartProfit">Rp 0</span>
-                    </div>
-                    <div class="bg-red-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
-                        <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">PENGELUARAN</span>
-                        <span class="text-xs font-black text-red-600 dark:text-red-400" id="chartExpense">Rp 0</span>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="bg-blue-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
+                            <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">OMZET KOTOR</span>
+                            <span class="text-xs font-black text-bri-blue dark:text-blue-400" id="chartOmzet">Rp 0</span>
+                        </div>
+                        <div class="bg-green-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
+                            <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">LABA BERSIH/PROFIT</span>
+                            <span class="text-xs font-black text-green-600 dark:text-green-400" id="chartProfit">Rp 0</span>
+                        </div>
+                        <div class="bg-red-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
+                            <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">PENGELUARAN</span>
+                            <span class="text-xs font-black text-red-600 dark:text-red-400" id="chartExpense">Rp 0</span>
+                        </div>
                     </div>
                 </div>
             </section>
 
             <!-- 6. LAMAN GRAFIK MIKRO -->
             <section id="page-grafik-mikro" class="page-section hidden space-y-6">
-                <div class="flex justify-between items-center">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h2 class="text-lg font-bold">Grafik Mikro Per Jenis Transaksi</h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Pertumbuhan & tabel terpisah tiap jenis pemasukan dan pengeluaran</p>
                     </div>
-                    <select id="microPeriod" onchange="renderMicroCharts()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
-                        <option value="7">7 Hari Terakhir</option>
-                        <option value="30">30 Hari Terakhir</option>
-                        <option value="365">1 Tahun</option>
-                    </select>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="microPeriod" onchange="renderMicroCharts()" class="p-2 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none font-bold shadow-sm">
+                            <option value="7">7 Hari Terakhir</option>
+                            <option value="30">30 Hari Terakhir</option>
+                            <option value="365">1 Tahun</option>
+                        </select>
+                        <button onclick="downloadElementDirect('microExportArea', 'jpg', 'Grafik_Mikro_Lengkap')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow transition transform active:scale-95 flex items-center space-x-1">
+                            <i class="fa-solid fa-file-image"></i><span>Unduh JPG</span>
+                        </button>
+                        <button onclick="downloadElementDirect('microExportArea', 'pdf', 'Grafik_Mikro_Lengkap')" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow transition transform active:scale-95 flex items-center space-x-1">
+                            <i class="fa-solid fa-file-pdf"></i><span>Unduh PDF</span>
+                        </button>
+                    </div>
                 </div>
 
-                <div>
-                    <h3 class="text-sm font-bold text-green-600 dark:text-green-400 uppercase mb-3 flex items-center gap-2">
-                        <i class="fa-solid fa-circle-arrow-down"></i> Grafik & Tabel Mikro Pemasukan
-                    </h3>
-                    <div id="microInContainer" class="space-y-6"></div>
-                </div>
+                <div id="microExportArea" class="space-y-6 bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700">
+                    <div>
+                        <h3 class="text-sm font-bold text-green-600 dark:text-green-400 uppercase mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-circle-arrow-down"></i> Grafik & Tabel Mikro Pemasukan
+                        </h3>
+                        <div id="microInContainer" class="space-y-6"></div>
+                    </div>
 
-                <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <h3 class="text-sm font-bold text-red-600 dark:text-red-400 uppercase mb-3 flex items-center gap-2">
-                        <i class="fa-solid fa-circle-arrow-up"></i> Grafik & Tabel Mikro Pengeluaran
-                    </h3>
-                    <div id="microOutContainer" class="space-y-6"></div>
+                    <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <h3 class="text-sm font-bold text-red-600 dark:text-red-400 uppercase mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-circle-arrow-up"></i> Grafik & Tabel Mikro Pengeluaran
+                        </h3>
+                        <div id="microOutContainer" class="space-y-6"></div>
+                    </div>
                 </div>
             </section>
 
@@ -1042,7 +1065,6 @@
             document.getElementById('filterInType').innerHTML = `<option value="ALL">Semua Jenis Pemasukan</option>` + opt.in.categories.map(c => `<option value="${c}">${c}</option>`).join('');
             document.getElementById('filterOutType').innerHTML = `<option value="ALL">Semua Jenis Pengeluaran</option>` + opt.out.categories.map(c => `<option value="${c}">${c}</option>`).join('');
 
-            // Kas asal kini mandiri per jenis transaksi (Masuk vs Keluar) atau digabung sesuai tab masing-masing
             const activeCashTypes = getCurrentActiveCashTypes();
             
             const transferFrom = document.getElementById('transferFrom');
@@ -2098,6 +2120,64 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        // FUNGSI UTAMA: UNDUH SEGERA TANPA PRATINJAU (DIRECT DOWNLOAD JPG / PDF)
+        async function downloadElementDirect(elementId, format, filePrefix) {
+            const targetElement = document.getElementById(elementId);
+            if(!targetElement) return;
+
+            try {
+                // Konversi target DOM menjadi canvas gambar beresolusi tinggi (scale 2)
+                const canvas = await html2canvas(targetElement, { 
+                    scale: 2, 
+                    useCORS: true, 
+                    backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff'
+                });
+
+                const fileName = `${filePrefix}_${state.currentAccount.replace(/\s+/g, '_')}_${getFormattedDate(0)}`;
+
+                if (format === 'jpg') {
+                    // Ekspor sebagai file JPG & Unduh Langsung
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = imgData;
+                    downloadLink.download = `${fileName}.jpg`;
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+                } else if (format === 'pdf') {
+                    // Ekspor sebagai file PDF & Simpan Langsung tanpa Preview
+                    const { jsPDF } = window.jspdf;
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const imgWidth = pdfWidth - 20; // Margin 10mm kiri-kanan
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    
+                    let heightLeft = imgHeight;
+                    let position = 10;
+
+                    pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                    heightLeft -= (pdfHeight - 20);
+
+                    // Tambahkan halaman baru secara otomatis jika grafik mikro sangat panjang
+                    while (heightLeft > 0) {
+                        position = heightLeft - imgHeight + 10;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                        heightLeft -= (pdfHeight - 20);
+                    }
+
+                    // Panggil fungsi .save() agar browser langsung mengunduh PDF secara instan
+                    pdf.save(`${fileName}.pdf`);
+                }
+            } catch (err) {
+                console.error("Gagal melakukan unduhan langsung:", err);
+                alert("Terjadi masalah teknis saat memproses berkas unduhan.");
+            }
         }
 
         function formatRp(val) {
