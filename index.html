@@ -509,7 +509,9 @@
                                         <th class="p-2.5 font-semibold min-w-[120px]">Harga Asli (Rp)</th>
                                         <th class="p-2.5 font-semibold w-24 text-center">Laba (%)</th>
                                         <th class="p-2.5 font-semibold min-w-[110px] text-right">Keuntungan</th>
+                                        <th class="p-2.5 font-semibold min-w-[120px] text-right">Total</th>
                                         <th class="p-2.5 font-semibold min-w-[120px] text-right">Harga Jual Satuan</th>
+                                        <th class="p-2.5 font-semibold min-w-[130px] text-right">Harga Jual Toko</th>
                                         <th class="p-2.5 font-semibold w-12 text-center">Aksi</th>
                                     </tr>
                                 </thead>
@@ -533,6 +535,8 @@
                             <span class="font-black text-purple-700 dark:text-purple-300 text-sm" id="draftTotalSell">Rp 0</span>
                         </div>
                     </div>
+
+                    <div id="hppDraftIndicator"></div>
 
                     <button onclick="saveHppPlan()" class="w-full py-3 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center space-x-1.5">
                         <i class="fa-solid fa-floppy-disk"></i>
@@ -1271,15 +1275,15 @@
         function initHppDraft() {
             if (hppDraftItems.length === 0) {
                 hppDraftItems = [
-                    { name: 'Barang A', qty: 1, cost: 50000, profitPercent: 20 },
-                    { name: 'Barang B', qty: 2, cost: 25000, profitPercent: 15 }
+                    { name: 'Barang A', qty: 1, cost: 50000, profitPercent: 20, storePrice: 0 },
+                    { name: 'Barang B', qty: 2, cost: 25000, profitPercent: 15, storePrice: 0 }
                 ];
             }
             renderHppDraftTable();
         }
 
         function addHppRow() {
-            hppDraftItems.push({ name: '', qty: 1, cost: 0, profitPercent: 10 });
+            hppDraftItems.push({ name: '', qty: 1, cost: 0, profitPercent: 10, storePrice: 0 });
             renderHppDraftTable();
         }
 
@@ -1299,55 +1303,135 @@
             if (field === 'qty') hppDraftItems[index].qty = Math.max(1, parseInt(value) || 1);
             if (field === 'cost') hppDraftItems[index].cost = Math.max(0, parseFloat(value) || 0);
             if (field === 'profitPercent') hppDraftItems[index].profitPercent = Math.max(0, parseFloat(value) || 0);
+            if (field === 'storePrice') hppDraftItems[index].storePrice = Math.max(0, parseFloat(value) || 0);
 
             updateHppCalculations();
         }
 
-        function updateHppCalculations() {
-            const operationalCost = parseFloat(document.getElementById('hppOperationalCost')?.value || 0);
-            
-            // Hitung total modal dasar (HPP) seluruh item
+        // Batas profit sehat: minimal 10% dari total biaya keseluruhan (HPP + operasional)
+        const HPP_TARGET_MARGIN = 10;
+
+        // Perhitungan tunggal dipakai bersama oleh form draft dan kartu tersimpan
+        function hppCompute(items, opCost) {
             let totalModalDasar = 0;
-            hppDraftItems.forEach(item => {
-                totalModalDasar += (item.cost * item.qty);
-            });
+            items.forEach(it => { totalModalDasar += (it.cost * it.qty); });
 
-            // Distribusi biaya operasional proporsional ke setiap satuan item atau item total
-            let totalCostAll = 0;
-            let totalProfitAll = 0;
-            let totalSellAll = 0;
+            let totalCost = 0, totalProfit = 0, totalSell = 0, totalStore = 0, storeFilled = 0;
 
-            hppDraftItems.forEach((item, idx) => {
-                const modalItem = item.cost;
-                const profit = modalItem * (item.profitPercent / 100);
-                
-                // Proporsi biaya operasional per item berdasarkan bobot modal atau jumlah item
-                let opSharePerItem = 0;
-                if (totalModalDasar > 0 && operationalCost > 0) {
-                    const itemTotalModal = item.cost * item.qty;
-                    opSharePerItem = (itemTotalModal / totalModalDasar) * (operationalCost / item.qty);
+            const rows = items.map(it => {
+                const profit = it.cost * (it.profitPercent / 100);
+                let opShare = 0;
+                if (totalModalDasar > 0 && opCost > 0) {
+                    opShare = ((it.cost * it.qty) / totalModalDasar) * (opCost / it.qty);
                 }
+                // Total = (Harga Asli + Laba) x Jumlah
+                const total = (it.cost + profit) * it.qty;
+                // Harga Jual Satuan (disarankan) = Harga Asli + Operasional Proporsional + Keuntungan
+                const sellPrice = it.cost + opShare + profit;
+                const storePrice = Number(it.storePrice) || 0;
+                const hasStore = storePrice > 0;
+                if (hasStore) storeFilled++;
 
-                // Rumus Harga Jual Satuan = (Harga Asli + Biaya Operasional Proporsional) + Keuntungan
-                const sellPriceSatuan = modalItem + opSharePerItem + profit;
-                const subtotalSell = sellPriceSatuan * item.qty;
+                totalCost += it.cost * it.qty;
+                totalProfit += profit * it.qty;
+                totalSell += sellPrice * it.qty;
+                // Item tanpa harga toko dihitung memakai harga jual yang disarankan
+                totalStore += (hasStore ? storePrice : sellPrice) * it.qty;
 
-                totalCostAll += (modalItem * item.qty);
-                totalProfitAll += (profit * item.qty);
-                totalSellAll += subtotalSell;
-
-                // Update teks pada kolom tabel tanpa merender ulang DOM input
-                const profitEl = document.getElementById(`profit_${idx}`);
-                const sellEl = document.getElementById(`sell_${idx}`);
-                if (profitEl) profitEl.innerText = formatRp(profit);
-                if (sellEl) sellEl.innerText = formatRp(sellPriceSatuan);
+                return { profit, total, sellPrice, storePrice, hasStore, diff: hasStore ? storePrice - sellPrice : 0 };
             });
 
-            const finalTotalModal = totalCostAll + operationalCost;
+            const totalBiaya = totalCost + opCost;
+            const profitSuggested = totalSell - totalBiaya;
+            const profitStore = totalStore - totalBiaya;
+            return {
+                rows, totalCost, totalBiaya, totalProfit, totalSell, totalStore, storeFilled,
+                profitSuggested, profitStore,
+                marginSuggested: totalBiaya > 0 ? (profitSuggested / totalBiaya) * 100 : 0,
+                marginStore: totalBiaya > 0 ? (profitStore / totalBiaya) * 100 : 0
+            };
+        }
 
-            if(document.getElementById('draftTotalCost')) document.getElementById('draftTotalCost').innerText = formatRp(finalTotalModal);
-            if(document.getElementById('draftTotalProfit')) document.getElementById('draftTotalProfit').innerText = formatRp(totalProfitAll);
-            if(document.getElementById('draftTotalSell')) document.getElementById('draftTotalSell').innerText = formatRp(totalSellAll + operationalCost);
+        // Indikator kesehatan rancangan (target profit >= 10% dari total biaya keseluruhan)
+        function hppIndicatorHtml(m) {
+            if (m.totalBiaya <= 0) return '';
+            const EPS = 1e-9;
+            const okS = m.marginSuggested + EPS >= HPP_TARGET_MARGIN;
+            const needed = m.totalBiaya * (1 + HPP_TARGET_MARGIN / 100);
+
+            const box = (ok, icon, title, margin, profit, msg) => `
+                <div class="p-3 rounded-xl border text-xs flex items-start space-x-2.5 ${ok
+                    ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300'
+                    : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300'}">
+                    <i class="fa-solid ${icon} text-base mt-0.5"></i>
+                    <div class="flex-1">
+                        <div class="font-extrabold">${title}: ${ok ? 'SEHAT' : 'KURANG IDEAL / TIDAK SEHAT'}</div>
+                        <div class="font-semibold mt-0.5">Profit ${formatRp(profit)} = ${margin.toFixed(1)}% dari total biaya (target minimal ${HPP_TARGET_MARGIN}%)</div>
+                        <div class="mt-0.5 opacity-90">${msg}</div>
+                    </div>
+                </div>`;
+
+            let html = box(
+                okS, okS ? 'fa-circle-check' : 'fa-triangle-exclamation',
+                'Harga Jual Disarankan', m.marginSuggested, m.profitSuggested,
+                okS ? 'Dengan harga jual yang disarankan, profit sudah memenuhi target.'
+                    : `Persen laba pada tiap item belum cukup. Kurang ${formatRp(needed - m.totalSell)} dari total penjualan untuk mencapai ${HPP_TARGET_MARGIN}%.`
+            );
+
+            if (m.storeFilled > 0) {
+                const okT = m.marginStore + EPS >= HPP_TARGET_MARGIN;
+                const selisih = m.totalStore - m.totalSell;
+                let msg;
+                if (okT && selisih >= 0) {
+                    msg = `Harga toko sebanding atau lebih tinggi dari harga saran (selisih total +${formatRp(selisih)}), keuntungan aman.`;
+                } else if (okT) {
+                    msg = `Harga toko lebih rendah dari harga saran (selisih total -${formatRp(Math.abs(selisih))}), tetapi profit masih memenuhi target.`;
+                } else {
+                    msg = `Harga toko ${selisih < 0 ? 'lebih rendah dari saran (selisih total -' + formatRp(Math.abs(selisih)) + ')' : 'belum cukup'}, sehingga tidak sebanding dengan keuntungan yang dibutuhkan. Kurang ${formatRp(needed - m.totalStore)} dari total penjualan toko untuk mencapai ${HPP_TARGET_MARGIN}%.`;
+                }
+                if (m.storeFilled < m.rows.length) {
+                    msg += ` <span class="italic">(${m.rows.length - m.storeFilled} item tanpa harga toko dihitung memakai harga saran.)</span>`;
+                }
+                html += box(
+                    okT, okT ? 'fa-store' : 'fa-store-slash',
+                    'Harga Jual Toko', m.marginStore, m.profitStore, msg
+                );
+            } else {
+                html += `<div class="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/40 text-[11px] text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700"><i class="fa-solid fa-circle-info mr-1"></i>Isi kolom "Harga Jual Toko" untuk membandingkan harga toko dengan harga yang disarankan.</div>`;
+            }
+            return `<div class="space-y-2">${html}</div>`;
+        }
+
+        function updateHppCalculations() {
+            const operationalCost = parseFloat(document.getElementById('hppOperationalCost')?.value || 0) || 0;
+            const m = hppCompute(hppDraftItems, operationalCost);
+
+            // Update teks kolom tanpa merender ulang input agar fokus tidak hilang
+            m.rows.forEach((r, idx) => {
+                const profitEl = document.getElementById(`profit_${idx}`);
+                const totalEl = document.getElementById(`total_${idx}`);
+                const sellEl = document.getElementById(`sell_${idx}`);
+                const diffEl = document.getElementById(`diff_${idx}`);
+                if (profitEl) profitEl.innerText = formatRp(r.profit);
+                if (totalEl) totalEl.innerText = formatRp(r.total);
+                if (sellEl) sellEl.innerText = formatRp(r.sellPrice);
+                if (diffEl) {
+                    if (r.hasStore) {
+                        const up = r.diff >= 0;
+                        diffEl.className = 'text-[10px] font-bold text-right mt-0.5 ' + (up ? 'text-green-600' : 'text-red-500');
+                        diffEl.innerText = (up ? '+' : '-') + formatRp(Math.abs(r.diff)) + ' vs saran';
+                    } else {
+                        diffEl.className = 'text-[10px] text-right mt-0.5';
+                        diffEl.innerText = '';
+                    }
+                }
+            });
+
+            if(document.getElementById('draftTotalCost')) document.getElementById('draftTotalCost').innerText = formatRp(m.totalBiaya);
+            if(document.getElementById('draftTotalProfit')) document.getElementById('draftTotalProfit').innerText = formatRp(m.totalProfit);
+            if(document.getElementById('draftTotalSell')) document.getElementById('draftTotalSell').innerText = formatRp(m.totalSell);
+            const ind = document.getElementById('hppDraftIndicator');
+            if (ind) ind.innerHTML = hppIndicatorHtml(m);
         }
 
         function renderHppDraftTable() {
@@ -1355,7 +1439,7 @@
             if(!tbody) return;
 
             if (hppDraftItems.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-3 text-center text-gray-400">Tekan "Tambah Baris" untuk mengisi item rancangan HPP.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="p-3 text-center text-gray-400">Tekan "Tambah Baris" untuk mengisi item rancangan HPP.</td></tr>`;
                 updateHppCalculations();
                 return;
             }
@@ -1377,7 +1461,12 @@
                             <input type="number" value="${item.profitPercent}" min="0" max="100" oninput="updateHppItemField(${idx}, 'profitPercent', this.value)" class="w-full p-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-center font-bold text-purple-600">
                         </td>
                         <td class="p-2 text-right font-semibold text-green-600" id="profit_${idx}">Rp 0</td>
+                        <td class="p-2 text-right font-bold text-gray-700 dark:text-gray-200" id="total_${idx}">Rp 0</td>
                         <td class="p-2 text-right font-extrabold text-blue-600 dark:text-blue-400" id="sell_${idx}">Rp 0</td>
+                        <td class="p-2">
+                            <input type="number" value="${item.storePrice || ''}" min="0" placeholder="Isi manual" oninput="updateHppItemField(${idx}, 'storePrice', this.value)" class="w-full p-1.5 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-700 rounded-lg outline-none font-bold text-right text-amber-700 dark:text-amber-400">
+                            <div id="diff_${idx}" class="text-[10px] text-right mt-0.5"></div>
+                        </td>
                         <td class="p-2 text-center">
                             <button onclick="deleteHppRow(${idx})" class="text-red-400 hover:text-red-600 transition" title="Hapus Baris"><i class="fa-solid fa-trash"></i></button>
                         </td>
@@ -1459,26 +1548,18 @@
             }
 
             container.innerHTML = plans.map(plan => {
-                let totalCostAll = 0;
-                let totalProfitAll = 0;
-                let totalSellAll = 0;
                 const opCost = Number(plan.operationalCost || 0);
-
-                plan.items.forEach(item => {
-                    totalCostAll += (item.cost * item.qty);
-                });
+                const m = hppCompute(plan.items, opCost);
+                const totalCostAll = m.totalCost;
+                const totalProfitAll = m.totalProfit;
+                const totalSellAll = m.totalSell;
 
                 const cardItems = plan.items.map((item, idx) => {
-                    const profit = item.cost * (item.profitPercent / 100);
-                    let opShare = 0;
-                    if (totalCostAll > 0 && opCost > 0) {
-                        opShare = ((item.cost * item.qty) / totalCostAll) * (opCost / item.qty);
-                    }
-                    const sellPrice = item.cost + opShare + profit;
-                    const subtotalSell = sellPrice * item.qty;
-
-                    totalProfitAll += (profit * item.qty);
-                    totalSellAll += subtotalSell;
+                    const r = m.rows[idx];
+                    const storeCell = r.hasStore
+                        ? `<div class="font-extrabold text-amber-700 dark:text-amber-400">${formatRp(r.storePrice)}</div>
+                           <div class="text-[10px] font-bold ${r.diff >= 0 ? 'text-green-600' : 'text-red-500'}">${r.diff >= 0 ? '+' : '-'}${formatRp(Math.abs(r.diff))} vs saran</div>`
+                        : `<span class="text-gray-300">-</span>`;
 
                     return `
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
@@ -1487,8 +1568,10 @@
                             <td class="p-2.5 text-center font-bold">${item.qty}</td>
                             <td class="p-2.5 text-right font-medium">${formatRp(item.cost)}</td>
                             <td class="p-2.5 text-center font-bold text-purple-600 dark:text-purple-400">${item.profitPercent}%</td>
-                            <td class="p-2.5 text-right font-semibold text-green-600">${formatRp(profit)}</td>
-                            <td class="p-2.5 text-right font-extrabold text-blue-600 dark:text-blue-400">${formatRp(sellPrice)}</td>
+                            <td class="p-2.5 text-right font-semibold text-green-600">${formatRp(r.profit)}</td>
+                            <td class="p-2.5 text-right font-bold text-gray-700 dark:text-gray-200">${formatRp(r.total)}</td>
+                            <td class="p-2.5 text-right font-extrabold text-blue-600 dark:text-blue-400">${formatRp(r.sellPrice)}</td>
+                            <td class="p-2.5 text-right">${storeCell}</td>
                         </tr>
                     `;
                 }).join('');
@@ -1527,7 +1610,9 @@
                                         <th class="p-2.5 font-semibold text-right">Harga Asli</th>
                                         <th class="p-2.5 font-semibold text-center">Persen Laba</th>
                                         <th class="p-2.5 font-semibold text-right">Keuntungan</th>
+                                        <th class="p-2.5 font-semibold text-right">Total</th>
                                         <th class="p-2.5 font-semibold text-right">Harga Jual Satuan</th>
+                                        <th class="p-2.5 font-semibold text-right">Harga Jual Toko</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -1550,6 +1635,8 @@
                                 <span class="font-black text-purple-700 dark:text-purple-300 text-sm">${formatRp(totalSellAll)}</span>
                             </div>
                         </div>
+
+                        ${hppIndicatorHtml(m)}
 
                         ${plan.note ? `
                             <div class="p-2.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl text-xs border border-gray-100 dark:border-gray-700">
