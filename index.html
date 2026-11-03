@@ -467,8 +467,12 @@
                 <!-- FORM INPUT RANCANGAN HPP -->
                 <div class="bg-white dark:bg-gray-800 p-4 md:p-5 rounded-2xl border border-purple-100 dark:border-gray-700 shadow-sm space-y-4">
                     <h3 class="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-pen-to-square"></i> Buat Form Rancangan HPP Baru
+                        <i class="fa-solid fa-pen-to-square"></i> <span id="hppFormTitle">Buat Form Rancangan HPP Baru</span>
                     </h3>
+                    <div id="hppEditBanner" class="hidden flex items-center justify-between gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl text-xs text-amber-700 dark:text-amber-300 font-semibold">
+                        <span><i class="fa-solid fa-pencil mr-1"></i> Mode edit: <span id="hppEditName"></span></span>
+                        <button onclick="cancelHppEdit()" class="px-2.5 py-1 bg-white dark:bg-gray-700 border border-amber-200 dark:border-amber-700 rounded-lg font-bold">Batal Edit</button>
+                    </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                         <div>
@@ -483,7 +487,11 @@
                             <label class="block font-semibold text-gray-500 mb-1">BIAYA OPERASIONAL TOTAL (RP)</label>
                             <input type="number" id="hppOperationalCost" min="0" value="0" oninput="updateHppCalculations()" placeholder="0" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-bold text-amber-600">
                         </div>
-                        <div class="md:col-span-3">
+                        <div>
+                            <label class="block font-semibold text-gray-500 mb-1">KAS ASAL BIAYA (DIAMBIL DARI KAS)</label>
+                            <select id="hppCashSource" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-semibold text-blue-700 dark:text-blue-300"></select>
+                        </div>
+                        <div class="md:col-span-2">
                             <label class="block font-semibold text-gray-500 mb-1">CATATAN KHUSUS (OPSIONAL)</label>
                             <input type="text" id="hppFormNote" placeholder="Misal: Sudah termasuk estimasi paking bubble wrap" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none">
                         </div>
@@ -544,7 +552,7 @@
 
                     <button onclick="saveHppPlan()" class="w-full py-3 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center space-x-1.5">
                         <i class="fa-solid fa-floppy-disk"></i>
-                        <span>Simpan Kartu Rancangan HPP Ini</span>
+                        <span id="hppSaveBtnLabel">Simpan Kartu Rancangan HPP Ini</span>
                     </button>
                 </div>
 
@@ -1113,7 +1121,7 @@
                     if (typeof items === 'string') { try { items = JSON.parse(items); } catch (e) { items = []; } }
                     return {
                         id: h.id, account: h.account, desc: h.description, date: h.date, note: h.note,
-                        operationalCost: Number(h.operational_cost || 0), items: items || [], realizedAt: h.realized_at || null
+                        operationalCost: Number(h.operational_cost || 0), items: items || [], realizedAt: h.realized_at || null, cashSource: h.cash_source || ''
                     };
                 });
 
@@ -1478,9 +1486,14 @@
             const acc = plan.account, date = _today();
             if (guardClosed(date)) return;
             const opts = getCurrentAccountOptions().out.cashTypes;
-            const cash = (prompt('Dibayar dari kas apa?\nPilihan: ' + opts.join(', '), opts[0]) || '').trim();
-            if (!opts.includes(cash)) { alert('Kas tidak valid. Realisasi dibatalkan.'); return; }
-            if (!confirm(`Catat belanja stok "${plan.desc}" dan masukkan ${plan.items.length} barang ke persediaan?`)) return;
+            let cash = (plan.cashSource || '').trim();
+            if (!cash) {
+                cash = (prompt('Dibayar dari kas apa?\nPilihan: ' + opts.join(', '), opts[0]) || '').trim();
+                if (!opts.includes(cash)) { alert('Kas tidak valid. Realisasi dibatalkan.'); return; }
+            } else if (!opts.includes(cash)) {
+                alert('Kas asal "' + cash + '" tidak ada lagi di daftar kas pengeluaran. Edit rancangan dan pilih kas lain.'); return;
+            }
+            if (!confirm(`Catat belanja stok "${plan.desc}" (diambil dari ${cash}) dan masukkan ${plan.items.length} barang ke persediaan?`)) return;
             const m = hppCompute(plan.items, Number(plan.operationalCost || 0));
             let txId = null;
             try {
@@ -2411,6 +2424,7 @@
         }
 
         function switchAccount(accountName) {
+            if (typeof editingHppId !== 'undefined' && editingHppId !== null) resetHppForm();
             state.currentAccount = accountName;
             ensureAccountOptions();
             renderDropdownOptions();
@@ -2734,7 +2748,7 @@
                     <tr class="hover:bg-purple-50/50 dark:hover:bg-gray-700/40">
                         <td class="p-2 text-center font-bold text-gray-400">${idx + 1}</td>
                         <td class="p-2">
-                            <input type="text" value="${item.name}" oninput="updateHppItemField(${idx}, 'name', this.value)" placeholder="Nama Barang/Bahan" class="w-full p-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none font-semibold">
+                            <input type="text" value="${esc(item.name)}" oninput="updateHppItemField(${idx}, 'name', this.value)" placeholder="Nama Barang/Bahan" class="w-full p-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none font-semibold">
                         </td>
                         <td class="p-2 text-center">
                             <input type="number" value="${item.qty}" min="1" oninput="updateHppItemField(${idx}, 'qty', this.value)" class="w-full p-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none text-center font-bold">
@@ -2762,12 +2776,84 @@
             updateHppCalculations();
         }
 
+        let editingHppId = null;
+
+        function hppCashOptions(extra) {
+            const list = [...getCurrentAccountOptions().out.cashTypes];
+            if (extra && !list.includes(extra)) list.push(extra);
+            return list;
+        }
+
+        function fillHppCashSelect(selected) {
+            const sel = document.getElementById('hppCashSource');
+            if (!sel) return;
+            const keep = selected !== undefined ? selected : sel.value;
+            const list = hppCashOptions(keep);
+            sel.innerHTML = list.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+            if (keep && list.includes(keep)) sel.value = keep;
+        }
+
+        function setHppEditMode(plan) {
+            const banner = document.getElementById('hppEditBanner');
+            const title = document.getElementById('hppFormTitle');
+            const btn = document.getElementById('hppSaveBtnLabel');
+            if (plan) {
+                banner.classList.remove('hidden');
+                document.getElementById('hppEditName').innerText = plan.desc;
+                title.innerText = 'Edit Rancangan HPP';
+                btn.innerText = 'Simpan Perubahan Rancangan';
+            } else {
+                banner.classList.add('hidden');
+                title.innerText = 'Buat Form Rancangan HPP Baru';
+                btn.innerText = 'Simpan Kartu Rancangan HPP Ini';
+            }
+        }
+
         function resetHppForm() {
+            editingHppId = null;
+            setHppEditMode(null);
             document.getElementById('hppFormDesc').value = '';
             document.getElementById('hppFormDate').value = getFormattedDate(0);
             document.getElementById('hppOperationalCost').value = '0';
             document.getElementById('hppFormNote').value = '';
+            const sel = document.getElementById('hppCashSource');
+            if (sel) { sel.innerHTML = ''; fillHppCashSelect(''); }
             resetHppDraftRows();
+        }
+
+        function cancelHppEdit() { resetHppForm(); }
+
+        function editHppPlan(id) {
+            const plan = state.hppPlans.find(h => h.id === id);
+            if (!plan) return;
+            if (plan.realizedAt && !confirm('Rancangan ini sudah direalisasikan ke stok. Perubahan di sini TIDAK mengubah stok & pengeluaran kas yang sudah tercatat. Tetap edit?')) return;
+            editingHppId = id;
+            document.getElementById('hppFormDesc').value = plan.desc || '';
+            document.getElementById('hppFormDate').value = plan.date || getFormattedDate(0);
+            document.getElementById('hppOperationalCost').value = Number(plan.operationalCost || 0);
+            document.getElementById('hppFormNote').value = plan.note || '';
+            hppDraftItems = JSON.parse(JSON.stringify(plan.items || []));
+            if (hppDraftItems.length === 0) hppDraftItems.push({ name: '', qty: 1, cost: 0, profitPercent: 10, storePrice: 0 });
+            fillHppCashSelect(plan.cashSource || '');
+            setHppEditMode(plan);
+            renderHppDraftTable();
+            const f = document.getElementById('hppFormDesc');
+            f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            f.focus({ preventScroll: true });
+        }
+
+        // Simpan ke DB. Bila kolom cash_source belum ada di tabel, simpan tanpa kolom itu lalu beri tahu pengguna.
+        async function hppPersist(payload, cashSource, id) {
+            const run = (p) => id
+                ? _supabase.from('hpp_plans').update(p).eq('id', id).select()
+                : _supabase.from('hpp_plans').insert([p]).select();
+            let r = await run({ ...payload, cash_source: cashSource });
+            r.noCol = false;
+            if (r.error && /cash_source/i.test(r.error.message || '')) {
+                r = await run(payload);
+                r.noCol = true;
+            }
+            return r;
         }
 
         async function saveHppPlan() {
@@ -2775,9 +2861,14 @@
             const date = document.getElementById('hppFormDate').value || getFormattedDate(0);
             const operationalCost = parseFloat(document.getElementById('hppOperationalCost').value) || 0;
             const note = document.getElementById('hppFormNote').value.trim();
+            const cashSource = (document.getElementById('hppCashSource').value || '').trim();
 
             if (hppDraftItems.length === 0) {
                 alert("Harap isi setidaknya 1 item barang!");
+                return;
+            }
+            if (!cashSource) {
+                alert("Pilih kas asal biaya terlebih dahulu!");
                 return;
             }
 
@@ -2786,33 +2877,33 @@
                 return;
             }
 
-            const { data, error } = await _supabase.from('hpp_plans').insert([{
-                account: state.currentAccount,
-                description: desc,
-                date: date,
-                operational_cost: operationalCost,
-                note: note,
-                items: JSON.parse(JSON.stringify(hppDraftItems))
-            }]).select();
+            const items = JSON.parse(JSON.stringify(hppDraftItems));
+            const payload = { description: desc, date: date, operational_cost: operationalCost, note: note, items: items };
+            const isEdit = editingHppId !== null;
+            if (!isEdit) payload.account = state.currentAccount;
 
-            if (error || !data || data.length === 0) {
-                const reason = error ? error.message : 'database tidak memberi respons';
+            const r = await hppPersist(payload, cashSource, isEdit ? editingHppId : null);
+
+            if (r.error || !r.data || r.data.length === 0) {
+                const reason = r.error ? r.error.message : 'database tidak memberi respons';
                 setSyncStatus('error', 'hpp_plans: ' + reason);
                 alert("Gagal menyimpan rancangan HPP ke database: " + reason);
                 return;
             }
 
-            const newPlan = {
-                id: data[0].id,
-                account: state.currentAccount,
-                desc: desc,
-                date: date,
-                operationalCost: operationalCost,
-                note: note,
-                items: JSON.parse(JSON.stringify(hppDraftItems))
-            };
+            if (isEdit) {
+                const plan = state.hppPlans.find(h => h.id === editingHppId);
+                if (plan) Object.assign(plan, { desc, date, operationalCost, note, items, cashSource });
+            } else {
+                state.hppPlans.push({
+                    id: r.data[0].id, account: state.currentAccount, desc, date,
+                    operationalCost, note, items, cashSource, realizedAt: null
+                });
+            }
 
-            state.hppPlans.push(newPlan);
+            if (r.noCol) {
+                alert("Rancangan tersimpan, tetapi kolom 'cash_source' belum ada di tabel hpp_plans sehingga kas asal belum tersimpan permanen.\n\nJalankan SQL ini di Supabase:\nalter table hpp_plans add column if not exists cash_source text;");
+            }
             resetHppForm();
             renderHppPage();
         }
@@ -2833,6 +2924,7 @@
             const container = document.getElementById('hppCardsContainer');
             if(!container) return;
 
+            fillHppCashSelect();
             const plans = state.hppPlans.filter(h => h.account === state.currentAccount);
             const badge = document.getElementById('hppCountBadge');
             if(badge) badge.innerText = `${plans.length} Rancangan`;
@@ -2888,11 +2980,16 @@
                                     <i class="fa-solid fa-file-image"></i><span>JPG</span>
                                 </button>
                                 ${plan.realizedAt ? '<span class="px-2.5 py-1.5 bg-green-100 text-green-700 text-[11px] font-bold rounded-xl">Sudah di Stok</span>' : `<button onclick="realizeHppPlan(${plan.id})" class="px-2.5 py-1.5 bg-bri-blue text-white text-[11px] font-bold rounded-xl" title="Catat pembelian &amp; masukkan ke stok"><i class="fa-solid fa-boxes-stacked"></i> Realisasikan ke Stok</button>`}
+                                <button onclick="editHppPlan(${plan.id})" class="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-[11px] font-bold rounded-xl transition flex items-center space-x-1" title="Edit Kartu">
+                                    <i class="fa-solid fa-pen"></i><span>Edit</span>
+                                </button>
                                 <button onclick="deleteHppPlan(${plan.id})" class="px-2.5 py-1.5 bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-[11px] font-bold rounded-xl transition" title="Hapus Kartu">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </div>
                         </div>
+
+                        <div class="text-xs text-blue-700 dark:text-blue-300 font-bold bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-xl"><i class="fa-solid fa-wallet mr-1"></i> Kas Asal Biaya: ${plan.cashSource ? esc(plan.cashSource) : '<span class="text-gray-400 font-semibold">belum ditentukan (klik Edit)</span>'} • Total biaya ${formatRp(finalModalWithOp)}</div>
 
                         ${opCost > 0 ? `<div class="text-xs text-amber-600 font-bold bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-xl"><i class="fa-solid fa-coins mr-1"></i> Biaya Operasional Total: ${formatRp(opCost)}</div>` : ''}
 
