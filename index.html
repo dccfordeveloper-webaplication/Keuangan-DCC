@@ -51,6 +51,7 @@
         .interactive-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
         .interactive-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px -5px rgba(0, 82, 156, 0.15); }
     </style>
+<style>.nav-btn{flex-shrink:0;min-width:40px}nav>div{overflow-x:auto;gap:2px}@media print{nav,header,.no-print{display:none!important}}</style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-300">
 
@@ -707,6 +708,22 @@
             </section>
 
             <!-- 9. LAMAN LAPORAN -->
+            <section id="page-stok" class="page-section hidden space-y-4">
+                <div class="flex justify-between items-start gap-2">
+                    <div><h2 class="text-lg font-bold">Persediaan (Stok)</h2><p class="text-xs text-gray-500 dark:text-gray-400">Beli &amp; jual barang otomatis tercatat di kas. HPP memakai rata-rata bergerak.</p></div>
+                    <button onclick="openStokItem()" class="px-3 py-2 bg-bri-blue text-white rounded-xl text-xs font-bold shadow-md"><i class="fa-solid fa-plus"></i> Barang</button>
+                </div>
+                <div id="stokContent" class="space-y-4"></div>
+            </section>
+
+            <section id="page-tutup" class="page-section hidden space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 no-print">
+                    <div><h2 class="text-lg font-bold">Tutup Buku</h2><p class="text-xs text-gray-500 dark:text-gray-400">Rekap per periode. Periode yang ditutup terkunci.</p></div>
+                    <input type="month" id="tbPeriod" onchange="renderTutupPage()" class="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold outline-none">
+                </div>
+                <div id="tbContent" class="space-y-4"></div>
+            </section>
+
             <section id="page-laporan" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -773,6 +790,8 @@
                 <button onclick="navigateTo('grafik-makro')" id="nav-grafik-makro" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-line text-xs"></i><span class="text-[8px] font-bold mt-0.5">Makro</span></button>
                 <button onclick="navigateTo('grafik-mikro')" id="nav-grafik-mikro" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-chart-pie text-xs"></i><span class="text-[8px] font-bold mt-0.5">Mikro</span></button>
                 <button onclick="navigateTo('aset')" id="nav-aset" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-boxes-packing text-xs"></i><span class="text-[8px] font-bold mt-0.5">Aset</span></button>
+                <button onclick="navigateTo('stok')" id="nav-stok" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-boxes-stacked text-xs"></i><span class="text-[8px] font-bold mt-0.5">Stok</span></button>
+                <button onclick="navigateTo('tutup')" id="nav-tutup" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-lock text-xs"></i><span class="text-[8px] font-bold mt-0.5">Tutup</span></button>
                 <button onclick="navigateTo('laporan')" id="nav-laporan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-file-lines text-xs"></i><span class="text-[8px] font-bold mt-0.5">Laporan</span></button>
             </div>
         </nav>
@@ -793,6 +812,31 @@
         </div>
 
         <!-- MODAL TRANSFER / PINDAH SALDO -->
+        <div id="stokItemModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-3">
+                <div class="flex justify-between items-center"><h3 class="font-bold text-sm text-bri-blue">Barang Baru</h3><button onclick="closeModal('stokItemModal')" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>
+                <form onsubmit="saveStokItem(event)" class="space-y-3 text-xs">
+                    <div><label class="block font-semibold mb-1 text-gray-500">NAMA BARANG</label><input id="siName" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div>
+                    <div class="grid grid-cols-2 gap-2"><div><label class="block font-semibold mb-1 text-gray-500">SATUAN</label><input id="siUnit" value="pcs" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div><div><label class="block font-semibold mb-1 text-gray-500">HARGA JUAL (RP)</label><input type="number" id="siPrice" min="0" value="0" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div></div>
+                    <button type="submit" class="w-full py-3 bg-bri-blue text-white font-bold rounded-xl text-xs">Simpan Barang</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="stokMoveModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-3">
+                <div class="flex justify-between items-center"><h3 id="smTitle" class="font-bold text-sm text-bri-blue"></h3><button onclick="closeModal('stokMoveModal')" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>
+                <form onsubmit="saveStokMove(event)" class="space-y-3 text-xs">
+                    <input type="hidden" id="smMode">
+                    <div><label class="block font-semibold mb-1 text-gray-500">BARANG</label><select id="smItem" onchange="onStokItemChange()" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></select><div id="smInfo" class="text-[10px] text-gray-400 mt-1"></div></div>
+                    <div class="grid grid-cols-2 gap-2"><div><label class="block font-semibold mb-1 text-gray-500" id="smQtyLbl">JUMLAH</label><input type="number" id="smQty" step="any" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div><div><label class="block font-semibold mb-1 text-gray-500" id="smPriceLbl">HARGA</label><input type="number" id="smPrice" min="0" step="any" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div></div>
+                    <div id="smCashWrap"><label class="block font-semibold mb-1 text-gray-500">KAS</label><select id="smCash" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></select></div>
+                    <div class="grid grid-cols-2 gap-2"><div><label class="block font-semibold mb-1 text-gray-500">TANGGAL</label><input type="date" id="smDate" required class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div><div><label class="block font-semibold mb-1 text-gray-500">CATATAN</label><input id="smNote" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div></div>
+                    <button type="submit" class="w-full py-3 bg-bri-orange text-white font-bold rounded-xl text-xs">Simpan</button>
+                </form>
+            </div>
+        </div>
+
         <div id="transferModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-4">
                 <div class="flex justify-between items-center">
@@ -935,7 +979,7 @@
             transactions: [],
             transfers: [],
             assets: [],
-            hppPlans: [],
+            hppPlans: [], inventoryItems: [], inventoryMoves: [], closings: [], schemaMissing: false,
             optionsPerAccount: {},
             microFilters: {},
             isBalanceHidden: false
@@ -1070,11 +1114,25 @@
                     if (typeof items === 'string') { try { items = JSON.parse(items); } catch (e) { items = []; } }
                     return {
                         id: h.id, account: h.account, desc: h.description, date: h.date, note: h.note,
-                        operationalCost: Number(h.operational_cost || 0), items: items || []
+                        operationalCost: Number(h.operational_cost || 0), items: items || [], realizedAt: h.realized_at || null
                     };
                 });
 
                 // Akun: pastikan semua akun yang dipakai data (dan akun bawaan saat tabel kosong) ada di cloud
+                // Tabel opsional (Stok & Tutup Buku): bila belum dibuat, aplikasi inti tetap jalan
+                const optR = await Promise.all([
+                    _supabase.from('inventory_items').select('*').order('id', { ascending: true }),
+                    _supabase.from('inventory_moves').select('*').order('id', { ascending: true }),
+                    _supabase.from('period_closings').select('*').order('id', { ascending: true })
+                ]);
+                state.schemaMissing = optR.some(r => r.error);
+                state.inventoryItems = optR[0].error ? [] : (optR[0].data || []).map(i => ({ id: i.id, account: i.account, name: i.name, unit: i.unit || 'pcs', sellPrice: Number(i.sell_price || 0) }));
+                state.inventoryMoves = optR[1].error ? [] : (optR[1].data || []).map(mapMove);
+                state.closings = optR[2].error ? [] : (optR[2].data || []).map(c => {
+                    let sn = c.snapshot; if (typeof sn === 'string') { try { sn = JSON.parse(sn); } catch (e) { sn = {}; } }
+                    return { id: c.id, account: c.account, period: c.period, status: c.status, snapshot: sn || {}, note: c.note || '', closedAt: c.closed_at };
+                });
+
                 const accRows = accR.data || [];
                 const dbNames = accRows.map(a => a.name);
                 const missing = [];
@@ -1112,7 +1170,7 @@
 
         function stateSignature() {
             return JSON.stringify([state.accounts, state.optionsPerAccount, state.transactions,
-                state.transfers, state.assets, state.hppPlans]);
+                state.transfers, state.assets, state.hppPlans, state.inventoryItems, state.inventoryMoves, state.closings]);
         }
 
         // Render ulang setelah data berubah dari perangkat lain, tanpa mereset pilihan dropdown yang sedang dipakai
@@ -1179,6 +1237,351 @@
             window.addEventListener('online', () => syncNow());
         }
 
+
+        // ==========================================
+        // STOK (PERSEDIAAN) & TUTUP BUKU
+        // ==========================================
+        const _g = id => document.getElementById(id);
+        function _today() { return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+        function _ym(d) { return String(d).slice(0, 7); }
+        function esc(x) { return String(x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function mapMove(m) {
+            return { id: m.id, account: m.account, itemId: m.item_id, date: m.date, type: m.type, qty: Number(m.qty),
+                unitCost: Number(m.unit_cost || 0), unitPrice: Number(m.unit_price || 0), note: m.note || '', transactionId: m.transaction_id || null };
+        }
+        function isPeriodClosed(acc, date) { return state.closings.some(c => c.account === acc && c.period === _ym(date) && c.status === 'closed'); }
+        function guardClosed(date) {
+            if (date && isPeriodClosed(state.currentAccount, date)) {
+                alert('Periode ' + _ym(date) + ' sudah DITUTUP. Data tidak bisa ditambah, diubah, atau dihapus. Buka kembali periode di menu Tutup Buku bila perlu koreksi.');
+                return true;
+            }
+            return false;
+        }
+        function needSchema() {
+            if (state.schemaMissing) { alert('Tabel Stok/Tutup Buku belum dibuat di database. Jalankan skrip migrasi_stok_tutup_buku.sql di Supabase terlebih dahulu.'); return true; }
+            return !initSupabaseClient();
+        }
+        function schemaWarn() {
+            return '<div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800"><b>Tabel belum dibuat.</b> Jalankan skrip <code>migrasi_stok_tutup_buku.sql</code> di Supabase (SQL Editor), lalu muat ulang aplikasi.</div>';
+        }
+
+        // Rata-rata bergerak: kembalikan stok & HPP per barang serta buku besar persediaan
+        function invWalk(acc, excludeId) {
+            const items = {};
+            state.inventoryItems.filter(i => i.account === acc).forEach(i => { items[i.id] = { qty: 0, avg: 0 }; });
+            const moves = state.inventoryMoves.filter(m => m.account === acc && m.id !== excludeId)
+                .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id);
+            const ledger = [];
+            const sum = () => Object.values(items).reduce((t, x) => t + x.qty * x.avg, 0);
+            moves.forEach(m => {
+                const it = items[m.itemId] || (items[m.itemId] = { qty: 0, avg: 0 });
+                let cost = 0;
+                if (m.type === 'in') { const nq = it.qty + m.qty; it.avg = nq > 0 ? (it.qty * it.avg + m.qty * m.unitCost) / nq : m.unitCost; it.qty = nq; cost = m.qty * m.unitCost; }
+                else if (m.type === 'out') { cost = m.qty * it.avg; it.qty -= m.qty; }
+                else { cost = Math.abs(m.qty) * it.avg; it.qty += m.qty; }
+                ledger.push({ m, cost, valueAfter: sum(), negative: it.qty < -1e-9 });
+            });
+            return { items, ledger };
+        }
+
+        function computePeriod(acc, period) {
+            const start = period + '-01';
+            const next = new Date(Date.UTC(+period.slice(0, 4), +period.slice(5, 7), 1)).toISOString().slice(0, 10);
+            const txs = state.transactions.filter(t => t.account === acc);
+            const trs = state.transfers.filter(t => t.account === acc);
+            const o = (state.optionsPerAccount[acc]) || { in: { cashTypes: [] }, out: { cashTypes: [] } };
+            const names = [...new Set([...(o.in.cashTypes || []), ...(o.out.cashTypes || [])])];
+            txs.forEach(t => { if (t.cashType && !names.includes(t.cashType)) names.push(t.cashType); });
+            const cash = names.map(name => {
+                let open = 0, inn = 0, out = 0, trIn = 0, trOut = 0;
+                txs.filter(t => t.cashType === name).forEach(t => {
+                    const v = t.qty * t.amount;
+                    if (t.date < start) open += t.type === 'in' ? v : -v;
+                    else if (t.date < next) { if (t.type === 'in') inn += v; else out += v; }
+                });
+                trs.forEach(t => {
+                    const f = (t.toCash === name ? 1 : 0) - (t.fromCash === name ? 1 : 0);
+                    if (!f) return;
+                    if (t.date < start) open += f * t.amount;
+                    else if (t.date < next) { if (f > 0) trIn += t.amount; else trOut += t.amount; }
+                });
+                return { name, open, inn, out, trIn, trOut, close: open + inn - out + trIn - trOut };
+            });
+            const inCat = {}, outCat = {}; let totIn = 0, totOut = 0;
+            txs.filter(t => t.date >= start && t.date < next).forEach(t => {
+                const v = t.qty * t.amount, c = t.category || 'Lainnya';
+                if (t.type === 'in') { inCat[c] = (inCat[c] || 0) + v; totIn += v; } else { outCat[c] = (outCat[c] || 0) + v; totOut += v; }
+            });
+            const w = invWalk(acc);
+            let invOpen = 0, invClose = 0, purchases = 0, cogs = 0, adjLoss = 0, salesGoods = 0;
+            w.ledger.forEach(l => {
+                const m = l.m;
+                if (m.date < start) invOpen = l.valueAfter;
+                if (m.date < next) invClose = l.valueAfter;
+                if (m.date >= start && m.date < next) {
+                    if (m.type === 'in') purchases += l.cost;
+                    else if (m.type === 'out') { cogs += l.cost; salesGoods += m.qty * m.unitPrice; }
+                    else adjLoss += m.qty < 0 ? l.cost : -l.cost;
+                }
+            });
+            const assetBuy = state.assets.filter(a => a.account === acc && a.date >= start && a.date < next).reduce((t, a) => t + a.qty * a.price, 0);
+            return { period, cash, inCat, outCat, totIn, totOut, net: totIn - totOut,
+                totalOpen: cash.reduce((t, c) => t + c.open, 0), totalClose: cash.reduce((t, c) => t + c.close, 0),
+                inv: { open: invOpen, purchases, cogs, adjLoss, close: invClose, salesGoods, grossProfit: salesGoods - cogs }, assetBuy };
+        }
+
+        // ---------- Akses database stok ----------
+        async function insTx(row) {
+            const { data, error } = await _supabase.from('transactions').insert([row]).select();
+            if (error || !data || !data.length) throw new Error(error ? error.message : 'database tidak merespons');
+            const t = data[0];
+            state.transactions.push({ id: t.id, account: t.account, type: t.type, date: t.date, desc: t.description, qty: t.qty, category: t.category, cashType: t.cash_type, amount: Number(t.amount) });
+            return t.id;
+        }
+        async function delTxById(id) {
+            const { error } = await _supabase.from('transactions').delete().eq('id', id);
+            if (error) throw new Error(error.message);
+            state.transactions = state.transactions.filter(t => t.id !== id);
+        }
+        async function insMoves(rows) {
+            const { data, error } = await _supabase.from('inventory_moves').insert(rows).select();
+            if (error || !data) throw new Error(error ? error.message : 'database tidak merespons');
+            data.forEach(m => state.inventoryMoves.push(mapMove(m)));
+        }
+        async function insItem(row) {
+            const { data, error } = await _supabase.from('inventory_items').insert([row]).select();
+            if (error || !data || !data.length) throw new Error(error ? error.message : 'database tidak merespons');
+            const i = data[0];
+            const it = { id: i.id, account: i.account, name: i.name, unit: i.unit || 'pcs', sellPrice: Number(i.sell_price || 0) };
+            state.inventoryItems.push(it);
+            return it;
+        }
+
+        // ---------- Halaman Stok ----------
+        function renderStokPage() {
+            const box = _g('stokContent'); if (!box) return;
+            if (state.schemaMissing) { box.innerHTML = schemaWarn(); return; }
+            const acc = state.currentAccount, w = invWalk(acc);
+            const items = state.inventoryItems.filter(i => i.account === acc);
+            let total = 0;
+            const rows = items.map(i => {
+                const s = w.items[i.id] || { qty: 0, avg: 0 }, val = s.qty * s.avg; total += val;
+                const margin = s.avg > 0 ? ((i.sellPrice - s.avg) / s.avg * 100) : 0;
+                const mc = s.avg > 0 ? (margin >= 10 ? 'text-green-600' : 'text-red-500') : 'text-gray-400';
+                return `<tr class="border-t border-gray-100 dark:border-gray-700">
+                    <td class="p-2.5 font-semibold">${esc(i.name)}</td>
+                    <td class="p-2.5 text-center font-bold ${s.qty <= 0 ? 'text-red-500' : ''}">${+s.qty.toFixed(2)} ${esc(i.unit)}</td>
+                    <td class="p-2.5 text-right">${formatRp(s.avg)}</td>
+                    <td class="p-2.5 text-right font-bold text-blue-600">${formatRp(i.sellPrice)}<div class="text-[10px] ${mc}">${s.avg > 0 ? margin.toFixed(1) + '% margin' : '-'}</div></td>
+                    <td class="p-2.5 text-right font-bold">${formatRp(val)}</td>
+                    <td class="p-2.5 text-right whitespace-nowrap">
+                        <button onclick="openStokMove('buy',${i.id})" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold">Beli</button>
+                        <button onclick="openStokMove('sell',${i.id})" class="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-[10px] font-bold">Jual</button>
+                        <button onclick="openStokMove('adj',${i.id})" class="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-bold">Sesuaikan</button>
+                        <button onclick="deleteStokItem(${i.id})" class="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-[10px]"><i class="fa-solid fa-trash"></i></button>
+                    </td></tr>`;
+            }).join('');
+            const names = {}; items.forEach(i => names[i.id] = i.name);
+            const hist = w.ledger.slice().reverse().slice(0, 20).map(l => {
+                const m = l.m, lbl = { in: 'Beli', out: 'Jual', adj: 'Sesuai' }[m.type], col = { in: 'text-blue-600', out: 'text-green-600', adj: 'text-amber-600' }[m.type];
+                const val = m.type === 'out' ? m.qty * m.unitPrice : m.type === 'in' ? l.cost : l.cost;
+                return `<tr class="border-t border-gray-100 dark:border-gray-700"><td class="p-2">${m.date}</td><td class="p-2 font-bold ${col}">${lbl}</td><td class="p-2">${esc(names[m.itemId] || '?')}</td><td class="p-2 text-center">${m.qty}</td><td class="p-2 text-right">${formatRp(val)}</td><td class="p-2 text-right">${l.negative ? '<span class="text-red-500 font-bold" title="Stok minus">!</span> ' : ''}<button onclick="deleteStokMove(${m.id})" class="text-red-400"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+            }).join('');
+            box.innerHTML = `
+                <div class="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-4 rounded-2xl shadow-lg"><span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nilai Persediaan (HPP rata-rata)</span><div class="text-2xl font-black text-amber-400 mt-0.5">${formatRp(total)}</div></div>
+                <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-x-auto"><table class="w-full text-xs"><thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 uppercase text-[10px]"><tr><th class="p-2.5 text-left">Barang</th><th class="p-2.5">Stok</th><th class="p-2.5 text-right">HPP</th><th class="p-2.5 text-right">Harga Jual</th><th class="p-2.5 text-right">Nilai</th><th class="p-2.5"></th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="p-4 text-center text-gray-400">Belum ada barang. Tambah barang, atau "Realisasikan ke Stok" dari kartu HPP.</td></tr>'}</tbody></table></div>
+                <div class="text-xs font-bold text-gray-500 uppercase px-1">Riwayat Stok Terakhir</div>
+                <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-x-auto"><table class="w-full text-xs"><tbody>${hist || '<tr><td class="p-4 text-center text-gray-400">Belum ada pergerakan stok.</td></tr>'}</tbody></table></div>`;
+        }
+
+        function openStokItem() { if (needSchema()) return; _g('siName').value = ''; openModal('stokItemModal'); }
+        async function saveStokItem(e) {
+            e.preventDefault(); if (needSchema()) return;
+            const name = _g('siName').value.trim();
+            if (state.inventoryItems.some(i => i.account === state.currentAccount && i.name.toLowerCase() === name.toLowerCase())) { alert('Barang dengan nama itu sudah ada.'); return; }
+            try { await insItem({ account: state.currentAccount, name, unit: _g('siUnit').value.trim() || 'pcs', sell_price: parseFloat(_g('siPrice').value) || 0 }); }
+            catch (err) { alert('Gagal menyimpan barang: ' + err.message); return; }
+            closeModal('stokItemModal'); renderStokPage();
+        }
+
+        function openStokMove(mode, itemId) {
+            if (needSchema()) return;
+            const acc = state.currentAccount, items = state.inventoryItems.filter(i => i.account === acc);
+            if (!items.length) { alert('Tambah barang terlebih dahulu.'); return; }
+            const opt = getCurrentAccountOptions();
+            _g('smMode').value = mode;
+            _g('smTitle').innerText = { buy: 'Beli Stok (tercatat sebagai pengeluaran)', sell: 'Jual Barang (tercatat sebagai pemasukan)', adj: 'Penyesuaian Stok (rusak/hilang/opname)' }[mode];
+            _g('smItem').innerHTML = items.map(i => `<option value="${i.id}" ${i.id === itemId ? 'selected' : ''}>${esc(i.name)}</option>`).join('');
+            _g('smCash').innerHTML = (mode === 'sell' ? opt.in.cashTypes : opt.out.cashTypes).map(c => `<option>${esc(c)}</option>`).join('');
+            _g('smCashWrap').classList.toggle('hidden', mode === 'adj');
+            _g('smQtyLbl').innerText = mode === 'adj' ? 'SELISIH JUMLAH (minus = berkurang)' : 'JUMLAH';
+            _g('smPriceLbl').innerText = mode === 'buy' ? 'HARGA BELI / SATUAN' : mode === 'sell' ? 'HARGA JUAL / SATUAN' : '(tidak dipakai)';
+            _g('smPrice').disabled = mode === 'adj';
+            _g('smQty').min = mode === 'adj' ? '' : '0.0001';
+            _g('smQty').value = ''; _g('smNote').value = ''; _g('smDate').value = _today();
+            onStokItemChange(); openModal('stokMoveModal');
+        }
+        function onStokItemChange() {
+            const mode = _g('smMode').value, id = +_g('smItem').value;
+            const it = state.inventoryItems.find(i => i.id === id); if (!it) return;
+            const s = invWalk(state.currentAccount).items[id] || { qty: 0, avg: 0 };
+            _g('smInfo').innerText = `Stok ${+s.qty.toFixed(2)} ${it.unit} | HPP rata-rata ${formatRp(s.avg)}`;
+            if (mode === 'sell') _g('smPrice').value = it.sellPrice || '';
+            if (mode === 'buy') _g('smPrice').value = Math.round(s.avg) || '';
+        }
+
+        async function saveStokMove(e) {
+            e.preventDefault(); if (needSchema()) return;
+            const mode = _g('smMode').value, itemId = +_g('smItem').value, qty = parseFloat(_g('smQty').value);
+            const price = parseFloat(_g('smPrice').value) || 0, cash = _g('smCash').value, date = _g('smDate').value, note = _g('smNote').value.trim();
+            const acc = state.currentAccount, item = state.inventoryItems.find(i => i.id === itemId);
+            if (!item || !qty) return;
+            if (guardClosed(date)) return;
+            if (mode !== 'adj' && qty <= 0) { alert('Jumlah harus lebih dari 0.'); return; }
+            if (mode !== 'adj' && price <= 0) { alert('Harga harus diisi.'); return; }
+            if (mode === 'adj' && !note) { alert('Catatan wajib diisi untuk penyesuaian stok.'); return; }
+            const st = (invWalk(acc).items[itemId] || { qty: 0 }).qty;
+            if ((mode === 'sell' && qty > st + 1e-9) || (mode === 'adj' && qty < 0 && -qty > st + 1e-9)) { alert(`Stok ${item.name} tidak cukup (tersisa ${+st.toFixed(2)}).`); return; }
+            let txId = null;
+            try {
+                if (mode === 'buy') txId = await insTx({ account: acc, type: 'out', date, description: 'Beli stok: ' + item.name, qty, category: 'Belanja Stok', cash_type: cash, amount: price });
+                if (mode === 'sell') txId = await insTx({ account: acc, type: 'in', date, description: 'Jual: ' + item.name, qty, category: 'Penjualan', cash_type: cash, amount: price });
+                try {
+                    await insMoves([{ account: acc, item_id: itemId, date, type: mode === 'buy' ? 'in' : mode === 'sell' ? 'out' : 'adj', qty,
+                        unit_cost: mode === 'buy' ? price : 0, unit_price: mode === 'sell' ? price : 0, note, transaction_id: txId }]);
+                } catch (err) { if (txId) await delTxById(txId).catch(() => {}); throw err; }
+            } catch (err) { alert('Gagal menyimpan: ' + err.message); return; }
+            closeModal('stokMoveModal'); refreshCurrentPage();
+        }
+
+        async function deleteStokMove(id) {
+            if (needSchema()) return;
+            const m = state.inventoryMoves.find(x => x.id === id); if (!m) return;
+            if (guardClosed(m.date)) return;
+            if (invWalk(m.account, id).ledger.some(l => l.negative)) { alert('Tidak bisa dihapus: stok akan menjadi minus pada transaksi lain.'); return; }
+            if (!confirm('Hapus pergerakan stok ini' + (m.transactionId ? ' beserta transaksi kasnya?' : '?'))) return;
+            try {
+                const { error } = await _supabase.from('inventory_moves').delete().eq('id', id);
+                if (error) throw new Error(error.message);
+                state.inventoryMoves = state.inventoryMoves.filter(x => x.id !== id);
+                if (m.transactionId && !state.inventoryMoves.some(x => x.transactionId === m.transactionId)) await delTxById(m.transactionId);
+            } catch (err) { alert('Gagal menghapus: ' + err.message); return; }
+            refreshCurrentPage();
+        }
+
+        async function deleteStokItem(id) {
+            if (needSchema()) return;
+            if (state.inventoryMoves.some(m => m.itemId === id)) { alert('Barang sudah punya riwayat stok, tidak bisa dihapus.'); return; }
+            const { error } = await _supabase.from('inventory_items').delete().eq('id', id);
+            if (error) { alert('Gagal menghapus barang: ' + error.message); return; }
+            state.inventoryItems = state.inventoryItems.filter(i => i.id !== id);
+            renderStokPage();
+        }
+
+        // HPP -> Stok: catat pembelian (pengeluaran) & masukkan barang ke persediaan dengan HPP per satuan
+        async function realizeHppPlan(id) {
+            if (needSchema()) return;
+            const plan = state.hppPlans.find(h => h.id === id); if (!plan) return;
+            if (plan.realizedAt) { alert('Rancangan ini sudah direalisasikan.'); return; }
+            const acc = plan.account, date = _today();
+            if (guardClosed(date)) return;
+            const opts = getCurrentAccountOptions().out.cashTypes;
+            const cash = (prompt('Dibayar dari kas apa?\nPilihan: ' + opts.join(', '), opts[0]) || '').trim();
+            if (!opts.includes(cash)) { alert('Kas tidak valid. Realisasi dibatalkan.'); return; }
+            if (!confirm(`Catat belanja stok "${plan.desc}" dan masukkan ${plan.items.length} barang ke persediaan?`)) return;
+            const m = hppCompute(plan.items, Number(plan.operationalCost || 0));
+            let txId = null;
+            try {
+                const moves = [];
+                for (let i = 0; i < plan.items.length; i++) {
+                    const it = plan.items[i], r = m.rows[i];
+                    let inv = state.inventoryItems.find(x => x.account === acc && x.name.toLowerCase() === String(it.name).trim().toLowerCase());
+                    if (!inv) inv = await insItem({ account: acc, name: String(it.name).trim(), unit: 'pcs', sell_price: Math.round(r.hasStore ? r.storePrice : r.sellPrice), plan_id: plan.id });
+                    moves.push({ account: acc, item_id: inv.id, date, type: 'in', qty: it.qty, unit_cost: r.sellPrice - r.profit, unit_price: 0, note: 'Dari rancangan HPP: ' + plan.desc });
+                }
+                txId = await insTx({ account: acc, type: 'out', date, description: 'Belanja stok (HPP): ' + plan.desc, qty: 1, category: 'Belanja Stok', cash_type: cash, amount: m.totalBiaya });
+                moves.forEach(x => x.transaction_id = txId);
+                try { await insMoves(moves); } catch (err) { await delTxById(txId).catch(() => {}); throw err; }
+            } catch (err) { alert('Gagal merealisasikan rancangan: ' + err.message); return; }
+            const { error } = await _supabase.from('hpp_plans').update({ realized_at: new Date().toISOString() }).eq('id', id);
+            if (error) alert('Stok sudah tercatat, tetapi gagal menandai rancangan: ' + error.message);
+            else plan.realizedAt = new Date().toISOString();
+            refreshCurrentPage();
+        }
+
+        // ---------- Halaman Tutup Buku ----------
+        function renderTutupPage() {
+            const box = _g('tbContent'); if (!box) return;
+            const inp = _g('tbPeriod'); if (!inp.value) inp.value = _ym(_today());
+            if (state.schemaMissing) { box.innerHTML = schemaWarn(); return; }
+            const acc = state.currentAccount, period = inp.value;
+            const closing = state.closings.find(c => c.account === acc && c.period === period);
+            const isClosed = !!closing && closing.status === 'closed';
+            const d = isClosed && closing.snapshot && closing.snapshot.cash ? closing.snapshot : computePeriod(acc, period);
+            const label = new Date(period + '-01T00:00:00').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            const card = (t, b) => `<div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-2"><div class="text-[11px] font-bold text-gray-500 uppercase">${t}</div>${b}</div>`;
+            const line = (a, b, cls) => `<div class="flex justify-between text-xs"><span>${a}</span><span class="font-bold ${cls || ''}">${b}</span></div>`;
+            const catRows = o => Object.keys(o).length ? Object.entries(o).map(([k, v]) => line(esc(k), formatRp(v))).join('') : '<div class="text-xs text-gray-400">Tidak ada.</div>';
+            const cashRows = d.cash.map(c => `<tr class="border-t border-gray-100 dark:border-gray-700"><td class="p-2 font-semibold">${esc(c.name)}</td><td class="p-2 text-right">${formatRp(c.open)}</td><td class="p-2 text-right text-green-600">${formatRp(c.inn)}</td><td class="p-2 text-right text-red-500">${formatRp(c.out)}</td><td class="p-2 text-right">${formatRp(c.trIn - c.trOut)}</td><td class="p-2 text-right font-bold ${c.close < 0 ? 'text-red-500' : ''}">${formatRp(c.close)}</td></tr>`).join('');
+            const iv = d.inv;
+            const hist = state.closings.filter(c => c.account === acc).sort((a, b) => a.period < b.period ? 1 : -1).map(c => `<div class="flex justify-between items-center text-xs py-1.5 border-t border-gray-100 dark:border-gray-700"><span class="font-semibold">${c.period} <span class="px-1.5 py-0.5 rounded ${c.status === 'closed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'} text-[10px]">${c.status === 'closed' ? 'Ditutup' : 'Dibuka kembali'}</span></span><span>${c.status === 'closed' && c.snapshot && c.snapshot.cash ? 'Saldo akhir ' + formatRp(c.snapshot.totalClose) : ''} <button onclick="_g('tbPeriod').value='${c.period}';renderTutupPage()" class="ml-1 text-blue-600 font-bold">Lihat</button></span></div>`).join('');
+            box.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="font-extrabold text-base">${label} - ${esc(acc)}</div>
+                    <span class="px-2.5 py-1 rounded-xl text-[11px] font-bold ${isClosed ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${isClosed ? '<i class="fa-solid fa-lock"></i> DITUTUP' : '<i class="fa-solid fa-lock-open"></i> TERBUKA'}</span>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    ${card('Saldo Awal', `<div class="font-black text-sm">${formatRp(d.totalOpen)}</div>`)}
+                    ${card('Pemasukan', `<div class="font-black text-sm text-green-600">${formatRp(d.totIn)}</div>`)}
+                    ${card('Pengeluaran', `<div class="font-black text-sm text-red-500">${formatRp(d.totOut)}</div>`)}
+                    ${card('Saldo Akhir', `<div class="font-black text-sm text-bri-blue">${formatRp(d.totalClose)}</div>`)}
+                </div>
+                ${card('Mutasi per Kas', `<div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px] text-gray-400 uppercase"><tr><th class="p-2 text-left">Kas</th><th class="p-2 text-right">Awal</th><th class="p-2 text-right">Masuk</th><th class="p-2 text-right">Keluar</th><th class="p-2 text-right">Transfer</th><th class="p-2 text-right">Akhir</th></tr></thead><tbody>${cashRows || '<tr><td colspan="6" class="p-2 text-gray-400">Tidak ada kas.</td></tr>'}</tbody></table></div>`)}
+                <div class="grid md:grid-cols-2 gap-2">
+                    ${card('Pemasukan per Kategori', catRows(d.inCat))}
+                    ${card('Pengeluaran per Kategori', catRows(d.outCat))}
+                </div>
+                ${card('Persediaan & Laba Kotor', line('Persediaan awal', formatRp(iv.open)) + line('+ Pembelian stok', formatRp(iv.purchases)) + line('- HPP barang terjual', formatRp(iv.cogs)) + line('- Rugi/selisih penyesuaian', formatRp(iv.adjLoss)) + line('Persediaan akhir', formatRp(iv.close), 'text-bri-blue') + '<hr class="border-gray-100 dark:border-gray-700">' + line('Penjualan barang (dari Stok)', formatRp(iv.salesGoods)) + line('Laba kotor', formatRp(iv.grossProfit), iv.grossProfit >= 0 ? 'text-green-600' : 'text-red-500'))}
+                ${card('Lainnya', line('Pengadaan aset (tidak mengurangi kas)', formatRp(d.assetBuy)) + line('Surplus / defisit kas periode', formatRp(d.net), d.net >= 0 ? 'text-green-600' : 'text-red-500'))}
+                <div class="no-print bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-3">
+                    <textarea id="tbNote" rows="2" ${isClosed ? 'disabled' : ''} placeholder="Catatan penutupan (opsional)" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none text-xs">${esc(closing ? closing.note : '')}</textarea>
+                    <div class="flex gap-2">
+                        ${isClosed ? '<button onclick="reopenPeriod()" class="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl text-xs">Buka Kembali Periode</button>' : '<button onclick="closePeriod()" class="flex-1 py-3 bg-purple-700 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-lock"></i> Tutup Periode Ini</button>'}
+                        <button onclick="window.print()" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 font-bold rounded-xl text-xs"><i class="fa-solid fa-print"></i></button>
+                    </div>
+                </div>
+                ${hist ? card('Riwayat Penutupan', hist) : ''}`;
+        }
+
+        async function closePeriod() {
+            if (needSchema()) return;
+            const acc = state.currentAccount, period = _g('tbPeriod').value;
+            if (period > _ym(_today())) { alert('Periode ini belum dimulai.'); return; }
+            const d = computePeriod(acc, period);
+            let msg = `Tutup periode ${period} untuk ${acc}?\nSetelah ditutup, transaksi, transfer, aset, dan stok pada periode ini terkunci.`;
+            if (period === _ym(_today())) msg += '\n\nPERHATIAN: bulan ini belum berakhir.';
+            if (d.cash.some(c => c.close < 0)) msg += '\n\nPERHATIAN: ada kas dengan saldo akhir minus. Periksa pencatatan terlebih dahulu.';
+            if (!confirm(msg)) return;
+            const note = (_g('tbNote') ? _g('tbNote').value : '').trim();
+            const { data, error } = await _supabase.from('period_closings')
+                .upsert([{ account: acc, period, status: 'closed', snapshot: d, note, closed_at: new Date().toISOString() }], { onConflict: 'account,period' }).select();
+            if (error || !data || !data.length) { alert('Gagal menutup periode: ' + (error ? error.message : 'tidak ada respons')); return; }
+            state.closings = state.closings.filter(c => !(c.account === acc && c.period === period));
+            state.closings.push({ id: data[0].id, account: acc, period, status: 'closed', snapshot: d, note, closedAt: data[0].closed_at });
+            renderTutupPage();
+        }
+
+        async function reopenPeriod() {
+            if (needSchema()) return;
+            const acc = state.currentAccount, period = _g('tbPeriod').value;
+            const c = state.closings.find(x => x.account === acc && x.period === period); if (!c) return;
+            if (!confirm(`Buka kembali periode ${period}? Data pada periode ini dapat diubah lagi, lalu tutup ulang setelah selesai.`)) return;
+            const { error } = await _supabase.from('period_closings').update({ status: 'open' }).eq('id', c.id);
+            if (error) { alert('Gagal membuka periode: ' + error.message); return; }
+            c.status = 'open';
+            renderTutupPage();
+        }
+
         let currentPage = 'beranda';
         function navigateTo(pageId) {
             currentPage = pageId;
@@ -1209,6 +1612,8 @@
             if (currentPage === 'grafik-mikro') renderMicroCharts();
             if (currentPage === 'aset') renderAssetTable();
             if (currentPage === 'laporan') renderReportTable();
+            if (currentPage === 'stok') renderStokPage();
+            if (currentPage === 'tutup') renderTutupPage();
         }
 
         function renderAccountSelector() {
@@ -1696,6 +2101,7 @@
                                 <button onclick="downloadElementDirect('${cardDomId}', 'jpg', 'Kartu_HPP_${plan.desc.replace(/\s+/g,'_')}')" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-xl shadow transition flex items-center space-x-1">
                                     <i class="fa-solid fa-file-image"></i><span>JPG</span>
                                 </button>
+                                ${plan.realizedAt ? '<span class="px-2.5 py-1.5 bg-green-100 text-green-700 text-[11px] font-bold rounded-xl">Sudah di Stok</span>' : `<button onclick="realizeHppPlan(${plan.id})" class="px-2.5 py-1.5 bg-bri-blue text-white text-[11px] font-bold rounded-xl" title="Catat pembelian &amp; masukkan ke stok"><i class="fa-solid fa-boxes-stacked"></i> Realisasikan ke Stok</button>`}
                                 <button onclick="deleteHppPlan(${plan.id})" class="px-2.5 py-1.5 bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-[11px] font-bold rounded-xl transition" title="Hapus Kartu">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
@@ -1969,6 +2375,7 @@
             const toCash = document.getElementById('transferTo').value;
             const amount = parseFloat(document.getElementById('transferAmount').value);
             const desc = document.getElementById('transferDesc').value.trim();
+            if (guardClosed(date)) return;
 
             if (fromCash === toCash) {
                 alert("Kas asal dan kas tujuan tidak boleh sama!");
@@ -2009,6 +2416,8 @@
         }
 
         async function deleteTransfer(id) {
+            const x0 = state.transfers.find(t => t.id === id);
+            if (x0 && guardClosed(x0.date)) return;
             if (_supabase) {
                 const { error } = await _supabase.from('transfers').delete().eq('id', id);
                 if (error) {
@@ -2102,6 +2511,7 @@
             const category = document.getElementById(`${prefix}Category`).value;
             const cashType = document.getElementById(`${prefix}CashType`).value;
             const amount = parseFloat(document.getElementById(`${prefix}Amount`).value);
+            if (guardClosed(date)) return;
 
             if (!_supabase) {
                 alert("Koneksi database belum siap!");
@@ -2138,6 +2548,9 @@
         }
 
         async function deleteTransaction(id) {
+            const t0 = state.transactions.find(t => t.id === id);
+            if (t0 && guardClosed(t0.date)) return;
+            if (state.inventoryMoves.some(m => m.transactionId === id)) { alert('Transaksi ini berasal dari menu Stok. Hapus lewat menu Stok agar stok dan kas tetap cocok.'); return; }
             if (_supabase) {
                 const { error } = await _supabase.from('transactions').delete().eq('id', id);
                 if (error) {
@@ -2496,6 +2909,7 @@
             const type = document.getElementById('assetType').value;
             const qty = parseInt(document.getElementById('assetQty').value);
             const price = parseFloat(document.getElementById('assetPrice').value);
+            if (guardClosed(date)) return;
 
             if (!_supabase) {
                 alert("Koneksi database belum siap!");
@@ -2531,6 +2945,8 @@
         }
 
         async function deleteAsset(id) {
+            const a0 = state.assets.find(a => a.id === id);
+            if (a0 && guardClosed(a0.date)) return;
             if (_supabase) {
                 const { error } = await _supabase.from('assets').delete().eq('id', id);
                 if (error) {
