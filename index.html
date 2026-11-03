@@ -35,6 +35,8 @@
     <!-- html2canvas & jsPDF CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- ExcelJS (unduh Excel berformat) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -1547,10 +1549,344 @@
                     <textarea id="tbNote" rows="2" ${isClosed ? 'disabled' : ''} placeholder="Catatan penutupan (opsional)" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none text-xs">${esc(closing ? closing.note : '')}</textarea>
                     <div class="flex gap-2">
                         ${isClosed ? '<button onclick="reopenPeriod()" class="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl text-xs">Buka Kembali Periode</button>' : '<button onclick="closePeriod()" class="flex-1 py-3 bg-purple-700 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-lock"></i> Tutup Periode Ini</button>'}
-                        <button onclick="window.print()" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 font-bold rounded-xl text-xs"><i class="fa-solid fa-print"></i></button>
+                        <button onclick="window.print()" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 font-bold rounded-xl text-xs" title="Cetak"><i class="fa-solid fa-print"></i></button>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-bold text-gray-500 uppercase mb-2"><i class="fa-solid fa-download mr-1"></i> Unduh Laporan (F4)</div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="tbExport('pdf', this)" class="py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition transform active:scale-95"><i class="fa-solid fa-file-pdf"></i><span>PDF</span></button>
+                            <button onclick="tbExport('xlsx', this)" class="py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition transform active:scale-95"><i class="fa-solid fa-file-excel"></i><span>Excel</span></button>
+                            <button onclick="tbExport('jpg', this)" class="py-3 bg-bri-blue hover:bg-bri-darkblue text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition transform active:scale-95"><i class="fa-solid fa-file-image"></i><span>JPG</span></button>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-1.5">Ukuran kertas F4 (215 x 330 mm). PDF dan JPG langsung terunduh tanpa pratinjau.</p>
                     </div>
                 </div>
                 ${hist ? card('Riwayat Penutupan', hist) : ''}`;
+        }
+
+
+        // ---------- Unduh Laporan Tutup Buku: PDF / Excel / JPG (ukuran F4 = 215 x 330 mm) ----------
+        const F4 = { W: 813, H: 1247, MM_W: 215, MM_H: 330 }; // 813 x 1247 px = 215 x 330 mm pada 96 dpi
+
+        function tbContext() {
+            const acc = state.currentAccount, period = _g('tbPeriod').value || _ym(_today());
+            const closing = state.closings.find(c => c.account === acc && c.period === period);
+            const isClosed = !!closing && closing.status === 'closed';
+            const d = isClosed && closing.snapshot && closing.snapshot.cash ? closing.snapshot : computePeriod(acc, period);
+            const noteEl = _g('tbNote');
+            const fmtDate = x => new Date(x).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            return {
+                acc, period, d, isClosed,
+                label: new Date(period + '-01T00:00:00').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+                note: (noteEl ? noteEl.value : (closing ? closing.note : '') || '').trim().slice(0, 600),
+                printed: fmtDate(new Date()),
+                closedAt: isClosed && closing.closedAt ? fmtDate(closing.closedAt) : '',
+                fileBase: 'Tutup_Buku_' + acc.replace(/[^\w]+/g, '_') + '_' + period
+            };
+        }
+
+        function tbSummary(ctx) {
+            const d = ctx.d;
+            return [
+                { label: 'Saldo Awal', v: d.totalOpen, color: '#374151', line: '#9CA3AF' },
+                { label: 'Pemasukan', v: d.totIn, color: '#16A34A', line: '#16A34A' },
+                { label: 'Pengeluaran', v: d.totOut, color: '#DC2626', line: '#DC2626' },
+                { label: 'Saldo Akhir', v: d.totalClose, color: '#00529C', line: '#F37021' }
+            ];
+        }
+
+        // Satu sumber data tabel untuk HTML (PDF/JPG) dan Excel. t: text | rp | pct
+        function tbSections(ctx) {
+            const d = ctx.d, iv = d.inv;
+            const sum = f => d.cash.reduce((t, c) => t + f(c), 0);
+            const cashRows = d.cash.map(c => ({ cells: [c.name, c.open, c.inn, c.out, c.trIn - c.trOut, c.close] }));
+            if (!cashRows.length) cashRows.push({ empty: 'Tidak ada kas.' });
+            else cashRows.push({ cls: 'total', cells: ['TOTAL', sum(c => c.open), sum(c => c.inn), sum(c => c.out), sum(c => c.trIn - c.trOut), sum(c => c.close)] });
+            const catRows = o => {
+                const e = Object.entries(o).sort((a, b) => b[1] - a[1]);
+                if (!e.length) return [{ empty: 'Tidak ada transaksi pada periode ini.' }];
+                const t = e.reduce((s, x) => s + x[1], 0);
+                return [...e.map(([k, v]) => ({ cells: [k, v, t ? v / t : 0] })), { cls: 'total', cells: ['TOTAL', t, 1] }];
+            };
+            const catCols = [{ h: 'Kategori', w: 54, t: 'text' }, { h: 'Jumlah', w: 28, t: 'rp' }, { h: 'Porsi', w: 18, t: 'pct' }];
+            const duoCols = [{ h: 'Uraian', w: 68, t: 'text' }, { h: 'Nilai', w: 32, t: 'rp' }];
+            return [
+                { title: 'Mutasi per Kas', rows: cashRows, cols: [{ h: 'Kas', w: 22, t: 'text' }, { h: 'Saldo Awal', w: 15.6, t: 'rp' }, { h: 'Pemasukan', w: 15.6, t: 'rp' }, { h: 'Pengeluaran', w: 15.6, t: 'rp' }, { h: 'Transfer Bersih', w: 15.6, t: 'rp' }, { h: 'Saldo Akhir', w: 15.6, t: 'rp' }] },
+                { title: 'Pemasukan per Kategori', cols: catCols, rows: catRows(d.inCat) },
+                { title: 'Pengeluaran per Kategori', cols: catCols, rows: catRows(d.outCat) },
+                { title: 'Persediaan & Laba Kotor', cols: duoCols, rows: [
+                    { cells: ['Persediaan awal', iv.open] },
+                    { cells: ['(+) Pembelian stok', iv.purchases] },
+                    { cells: ['(-) HPP barang terjual', iv.cogs] },
+                    { cells: ['(-) Rugi / selisih penyesuaian', iv.adjLoss] },
+                    { cls: 'sub', cells: ['Persediaan akhir', iv.close] },
+                    { cells: ['Penjualan barang (dari Stok)', iv.salesGoods] },
+                    { cls: 'total', cells: ['Laba kotor', iv.grossProfit] }] },
+                { title: 'Lainnya', cols: duoCols, rows: [
+                    { cells: ['Pengadaan aset (tidak mengurangi kas)', d.assetBuy] },
+                    { cls: 'total', cells: ['Surplus / defisit kas periode', d.net] }] }
+            ];
+        }
+
+        function tbFmt(v, t) {
+            if (t === 'rp') return formatRp(v);
+            if (t === 'pct') return (v * 100).toFixed(1).replace('.', ',') + '%';
+            return esc(v);
+        }
+
+        function tbSecHtml(sec, rows, cont) {
+            const cg = sec.cols.map(c => `<col style="width:${c.w}%">`).join('');
+            const th = sec.cols.map(c => `<th style="text-align:${c.t === 'text' ? 'left' : 'right'}">${esc(c.h)}</th>`).join('');
+            const body = rows.map((r, i) => r.empty
+                ? `<tr><td colspan="${sec.cols.length}" class="f4-empty">${esc(r.empty)}</td></tr>`
+                : `<tr class="${r.cls || (i % 2 ? 'z' : '')}">` + r.cells.map((v, j) => {
+                    const c = sec.cols[j];
+                    return `<td style="text-align:${c.t === 'text' ? 'left' : 'right'}" class="${c.t !== 'text' && v < 0 ? 'neg' : ''}">${tbFmt(v, c.t)}</td>`;
+                }).join('') + '</tr>').join('');
+            return `<div class="f4-sec"><div class="f4-st"><i></i>${esc(sec.title)}${cont ? ' <span style="font-weight:600;color:#9CA3AF;margin-left:6px;text-transform:none">(lanjutan)</span>' : ''}</div><div class="f4-tw"><table class="f4-t"><colgroup>${cg}</colgroup><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+        }
+
+        function tbEnsureStyle() {
+            if (_g('f4-style')) return;
+            const st = document.createElement('style'); st.id = 'f4-style';
+            st.textContent = `
+            .f4-page{width:813px;height:1247px;position:relative;background:#fff;color:#1f2937;font-family:'Plus Jakarta Sans',Arial,sans-serif;overflow:hidden;box-sizing:border-box}
+            .f4-page *{box-sizing:border-box;margin:0}
+            .f4-h1{height:128px;position:relative;background:linear-gradient(135deg,#00529C 0%,#002E66 100%);color:#fff;overflow:hidden}
+            .f4-h1:after,.f4-hn:after{content:'';position:absolute;left:0;right:0;bottom:0;height:5px;background:#F37021}
+            .f4-hn{height:54px;position:relative;background:linear-gradient(135deg,#00529C 0%,#002E66 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 40px;font-size:11px;font-weight:700;letter-spacing:.04em;overflow:hidden}
+            .f4-circ{position:absolute;right:-50px;top:-70px;width:230px;height:230px;border-radius:50%;background:rgba(255,255,255,.07)}
+            .f4-circ2{position:absolute;right:120px;top:70px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.05)}
+            .f4-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;height:74px;margin-bottom:16px}
+            .f4-card{border:1px solid #DCE5F0;border-top-width:4px;border-radius:8px;padding:10px 12px;background:#F8FAFD}
+            .f4-card .l{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6B7280}
+            .f4-card .v{font-size:14.5px;font-weight:800;margin-top:6px;white-space:nowrap}
+            .f4-sec{margin-bottom:14px}
+            .f4-st{height:30px;display:flex;align-items:center;font-size:12px;font-weight:800;color:#00529C;text-transform:uppercase;letter-spacing:.04em}
+            .f4-st i{display:inline-block;width:4px;height:14px;background:#F37021;border-radius:2px;margin-right:8px}
+            .f4-tw{border:1px solid #D0D7E2;border-radius:8px;overflow:hidden}
+            .f4-t{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0}
+            .f4-t th{height:26px;background:#00529C;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:0 8px;white-space:nowrap}
+            .f4-t td{height:24px;padding:0 8px;font-size:11.5px;border-top:1px solid #E5EAF2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:22px;background:#fff}
+            .f4-t tr.z td{background:#F4F7FA}
+            .f4-t tr.sub td{font-weight:700}
+            .f4-t tr.total td{background:#E6EFFA;font-weight:800;color:#002E66;border-top:2px solid #00529C}
+            .f4-t td.neg{color:#DC2626}
+            .f4-empty{text-align:center;color:#9CA3AF;font-style:italic}
+            .f4-note{border:1px solid #F5D9C4;background:#FFF6EE;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11.5px;line-height:17px;white-space:pre-wrap}
+            .f4-note b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#F37021;margin-bottom:3px}
+            .f4-sign{display:flex;justify-content:space-between;padding:6px 36px 0;height:150px;font-size:11.5px}
+            .f4-sign div{width:210px;text-align:center}
+            .f4-sign .sp{height:70px}
+            .f4-sign .ln{border-top:1px solid #374151;padding-top:4px;font-weight:700}
+            .f4-foot{position:absolute;left:40px;right:40px;bottom:22px;height:24px;border-top:1px solid #D0D7E2;display:flex;justify-content:space-between;align-items:flex-end;font-size:9.5px;color:#6B7280}`;
+            document.head.appendChild(st);
+        }
+
+        // Susun halaman F4: tinggi baris tetap sehingga pemotongan halaman presisi dan tabel tidak terpotong di tengah baris
+        function tbBuildPages(ctx) {
+            tbEnsureStyle();
+            const RH = 25, TITLE = 30, THEAD = 26, GAP = 14;
+            const BODY1 = F4.H - 128 - 18 - 62, BODYN = F4.H - 54 - 18 - 62;
+            const pages = [];
+            const nw = () => pages.push({ items: [], used: 0, body: pages.length ? BODYN : BODY1 });
+            const cur = () => pages[pages.length - 1];
+            const block = (h, html) => { if (cur().used + h > cur().body) nw(); cur().items.push(html); cur().used += h; };
+            nw();
+
+            block(90, `<div class="f4-cards">${tbSummary(ctx).map(c => `<div class="f4-card" style="border-top-color:${c.line}"><div class="l">${c.label}</div><div class="v" style="color:${c.color}">${formatRp(c.v)}</div></div>`).join('')}</div>`);
+
+            tbSections(ctx).forEach(sec => {
+                let i = 0, first = true; const n = sec.rows.length;
+                while (i < n) {
+                    const cap = Math.floor((cur().body - cur().used - TITLE - THEAD - GAP) / RH);
+                    if (cap < Math.min(n - i, 2) || (first && n <= 10 && cap < n)) { nw(); continue; }
+                    let take = Math.min(cap, n - i);
+                    if (n - i - take === 1 && take > 1) take--;
+                    cur().items.push(tbSecHtml(sec, sec.rows.slice(i, i + take), !first));
+                    cur().used += TITLE + THEAD + take * RH + GAP;
+                    i += take; first = false;
+                    if (i < n) nw();
+                }
+            });
+
+            if (ctx.note) {
+                const lines = ctx.note.split('\n').reduce((t, l) => t + Math.max(1, Math.ceil(l.length / 100)), 0);
+                block(44 + lines * 17 + 14, `<div class="f4-note"><b>Catatan Penutupan</b>${esc(ctx.note)}</div>`);
+            }
+            block(150, `<div class="f4-sign"><div><div>Dibuat oleh,</div><div style="font-weight:700">Bendahara</div><div class="sp"></div><div class="ln">( ............................... )</div></div><div><div>Mengetahui,</div><div style="font-weight:700">Ketua / Pengurus</div><div class="sp"></div><div class="ln">( ............................... )</div></div></div>`);
+
+            const total = pages.length;
+            const badge = ctx.isClosed
+                ? `<div style="display:inline-block;background:#16A34A;color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;padding:5px 14px;border-radius:99px">DITUTUP</div>`
+                : `<div style="display:inline-block;background:#F59E0B;color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;padding:5px 14px;border-radius:99px">DRAFT - BELUM DITUTUP</div>`;
+            const head1 = `<div class="f4-h1"><div class="f4-circ"></div><div class="f4-circ2"></div>
+                <div style="position:absolute;left:40px;top:24px"><div style="font-size:10.5px;font-weight:700;letter-spacing:.14em;color:#BBD6F2">BENDAHARA DCC 2.0 &bull; SISTEM KEUANGAN SEKTOR</div>
+                <div style="font-size:28px;font-weight:800;margin-top:6px;letter-spacing:.01em">LAPORAN TUTUP BUKU</div>
+                <div style="font-size:13px;font-weight:600;margin-top:4px;color:#E3EEFB">Periode ${esc(ctx.label)} &nbsp;&bull;&nbsp; Akun ${esc(ctx.acc)}</div></div>
+                <div style="position:absolute;right:40px;top:26px;text-align:right">${badge}<div style="font-size:10px;color:#BBD6F2;margin-top:8px">Dicetak: ${esc(ctx.printed)}</div>${ctx.closedAt ? `<div style="font-size:10px;color:#BBD6F2;margin-top:2px">Ditutup: ${esc(ctx.closedAt)}</div>` : ''}</div></div>`;
+            const headN = `<div class="f4-hn"><span>LAPORAN TUTUP BUKU &bull; ${esc(ctx.acc).toUpperCase()}</span><span>${esc(ctx.label).toUpperCase()}</span></div>`;
+
+            const host = document.createElement('div');
+            host.id = 'f4-host';
+            host.style.cssText = `position:absolute;left:-10000px;top:0;width:${F4.W}px`;
+            host.innerHTML = pages.map((p, i) => `<div class="f4-page">${i === 0 ? head1 : headN}<div style="padding:18px 40px 0">${p.items.join('')}</div><div class="f4-foot"><span>Sistem Keuangan Sektor DCC &bull; ${esc(ctx.acc)} &bull; ${esc(ctx.label)}</span><span>Halaman ${i + 1} dari ${total}</span></div></div>`).join('');
+            document.body.appendChild(host);
+            return { host, els: Array.from(host.querySelectorAll('.f4-page')) };
+        }
+
+        async function tbRenderCanvases(els) {
+            if (typeof html2canvas !== 'function') throw new Error('Library gambar belum termuat. Periksa koneksi internet lalu coba lagi.');
+            if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+            const out = [];
+            for (const el of els) {
+                out.push(await html2canvas(el, {
+                    scale: 2, useCORS: true, backgroundColor: '#ffffff', width: F4.W, height: F4.H,
+                    windowWidth: 1280, scrollX: 0, scrollY: 0,
+                    onclone: doc => { const h = doc.getElementById('f4-host'); if (h) h.style.left = '0px'; }
+                }));
+            }
+            return out;
+        }
+
+        function tbSave(blob, name) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob); a.download = name;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+        }
+
+        async function tbExportExcel(ctx) {
+            if (!window.ExcelJS) throw new Error('Library Excel belum termuat. Periksa koneksi internet lalu coba lagi.');
+            const NAVY = 'FF00529C', DARK = 'FF002E66', ORANGE = 'FFF37021', LIGHT = 'FFF4F7FA', PALE = 'FFE6EFFA', LINE = 'FFD0D7E2', WHITE = 'FFFFFFFF';
+            const RP = '"Rp" #,##0;[Red]-"Rp" #,##0', PCT = '0.0%';
+            const solid = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+            const thin = { style: 'thin', color: { argb: LINE } };
+            const box = { top: thin, left: thin, bottom: thin, right: thin };
+            const wb = new ExcelJS.Workbook(); wb.creator = 'Bendahara DCC'; wb.created = new Date();
+            const ws = wb.addWorksheet('Tutup Buku ' + ctx.period, {
+                views: [{ showGridLines: false }],
+                pageSetup: { paperSize: 14, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
+                    margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.6, header: 0.25, footer: 0.25 } }
+            });
+            ws.columns = [{ width: 38 }, { width: 21 }, { width: 21 }, { width: 21 }, { width: 21 }, { width: 21 }];
+            ws.headerFooter.oddFooter = '&L&8Sistem Keuangan Sektor DCC&R&8Halaman &P dari &N';
+            let r = 1;
+            const mergeRow = (text, o, span) => {
+                ws.mergeCells(r, 1, r, span || 6);
+                const c = ws.getCell(r, 1); c.value = text;
+                c.alignment = { vertical: 'middle', horizontal: 'left', wrapText: !!o.wrap, indent: 1 };
+                c.font = o.font; if (o.fill) c.fill = solid(o.fill);
+                ws.getRow(r).height = o.height || 20; r++;
+            };
+            mergeRow('LAPORAN TUTUP BUKU', { font: { size: 18, bold: true, color: { argb: WHITE } }, fill: NAVY, height: 36 });
+            mergeRow(`Akun: ${ctx.acc}   |   Periode: ${ctx.label}`, { font: { size: 11, bold: true, color: { argb: WHITE } }, fill: DARK, height: 22 });
+            mergeRow(`Status: ${ctx.isClosed ? 'DITUTUP' + (ctx.closedAt ? ' pada ' + ctx.closedAt : '') : 'DRAFT (belum ditutup)'}   |   Dicetak: ${ctx.printed}`, { font: { size: 10, italic: true, color: { argb: 'FF1F2937' } }, fill: PALE, height: 20 });
+            for (let c = 1; c <= 6; c++) ws.getCell(r, c).fill = solid(ORANGE);
+            ws.getRow(r).height = 4; r++;
+            ws.getRow(r).height = 10; r++;
+
+            const writeSection = (title, cols, rows) => {
+                mergeRow(title.toUpperCase(), { font: { size: 11, bold: true, color: { argb: NAVY } }, fill: PALE, height: 22 }, cols.length);
+                const hr = ws.getRow(r);
+                cols.forEach((c, j) => {
+                    const cell = hr.getCell(j + 1); cell.value = c.h;
+                    cell.font = { bold: true, size: 10, color: { argb: WHITE } }; cell.fill = solid(NAVY); cell.border = box;
+                    cell.alignment = { vertical: 'middle', horizontal: c.t === 'text' ? 'left' : 'right', indent: 1 };
+                });
+                hr.height = 22; r++;
+                rows.forEach((row, i) => {
+                    if (row.empty) {
+                        ws.mergeCells(r, 1, r, cols.length);
+                        const c = ws.getCell(r, 1); c.value = row.empty; c.border = box;
+                        c.font = { italic: true, size: 10, color: { argb: 'FF9CA3AF' } }; c.alignment = { horizontal: 'center', vertical: 'middle' };
+                    } else {
+                        const rw = ws.getRow(r);
+                        row.cells.forEach((v, j) => {
+                            const c = rw.getCell(j + 1), col = cols[j];
+                            c.value = v;
+                            if (col.t === 'rp') c.numFmt = RP;
+                            if (col.t === 'pct') c.numFmt = PCT;
+                            c.alignment = { vertical: 'middle', horizontal: col.t === 'text' ? 'left' : 'right', indent: 1 };
+                            c.font = { size: 10.5, bold: row.cls === 'total' || row.cls === 'sub', color: { argb: row.cls === 'total' ? DARK : 'FF1F2937' } };
+                            c.border = row.cls === 'total' ? { top: { style: 'medium', color: { argb: NAVY } }, left: thin, bottom: thin, right: thin } : box;
+                            if (row.cls === 'total') c.fill = solid(PALE); else if (i % 2) c.fill = solid(LIGHT);
+                        });
+                    }
+                    ws.getRow(r).height = 19; r++;
+                });
+                ws.getRow(r).height = 10; r++;
+            };
+
+            const d = ctx.d;
+            writeSection('Ringkasan Periode', [{ h: 'Uraian', t: 'text' }, { h: 'Nilai', t: 'rp' }], [
+                { cells: ['Saldo awal', d.totalOpen] }, { cells: ['Total pemasukan', d.totIn] }, { cells: ['Total pengeluaran', d.totOut] },
+                { cls: 'total', cells: ['Saldo akhir', d.totalClose] }]);
+            tbSections(ctx).forEach(sec => writeSection(sec.title, sec.cols, sec.rows));
+
+            if (ctx.note) {
+                mergeRow('CATATAN PENUTUPAN', { font: { size: 11, bold: true, color: { argb: NAVY } }, fill: PALE, height: 22 });
+                ws.mergeCells(r, 1, r, 6);
+                const c = ws.getCell(r, 1); c.value = ctx.note; c.border = box;
+                c.alignment = { wrapText: true, vertical: 'top', horizontal: 'left', indent: 1 }; c.font = { size: 10.5 };
+                ws.getRow(r).height = Math.max(22, ctx.note.split('\n').reduce((t, l) => t + Math.max(1, Math.ceil(l.length / 120)), 0) * 15 + 6); r++;
+                ws.getRow(r).height = 10; r++;
+            }
+
+            // Tanda tangan
+            const sign = (col, a, b) => {
+                ws.mergeCells(r, col, r, col + 1); ws.mergeCells(r + 1, col, r + 1, col + 1);
+                ws.mergeCells(r + 5, col, r + 5, col + 1);
+                const f = { size: 10.5, bold: false }, al = { horizontal: 'center', vertical: 'middle' };
+                ws.getCell(r, col).value = a; ws.getCell(r, col).font = f; ws.getCell(r, col).alignment = al;
+                ws.getCell(r + 1, col).value = b; ws.getCell(r + 1, col).font = { size: 10.5, bold: true }; ws.getCell(r + 1, col).alignment = al;
+                ws.getCell(r + 5, col).value = '( ............................... )'; ws.getCell(r + 5, col).font = f; ws.getCell(r + 5, col).alignment = al;
+            };
+            sign(1, 'Dibuat oleh,', 'Bendahara'); sign(4, 'Mengetahui,', 'Ketua / Pengurus');
+            for (let k = 2; k <= 4; k++) ws.getRow(r + k).height = 22;
+            r += 6;
+            ws.pageSetup.printArea = `A1:F${r}`;
+
+            const buf = await wb.xlsx.writeBuffer();
+            tbSave(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), ctx.fileBase + '.xlsx');
+        }
+
+        async function tbExport(fmt, btn) {
+            if (state.schemaMissing) return;
+            const orig = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Memproses...</span>'; }
+            let built = null;
+            try {
+                const ctx = tbContext();
+                if (fmt === 'xlsx') {
+                    await tbExportExcel(ctx);
+                } else {
+                    built = tbBuildPages(ctx);
+                    const cvs = await tbRenderCanvases(built.els);
+                    if (fmt === 'pdf') {
+                        if (!window.jspdf) throw new Error('Library PDF belum termuat. Periksa koneksi internet lalu coba lagi.');
+                        const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: [F4.MM_W, F4.MM_H], orientation: 'portrait', compress: true });
+                        cvs.forEach((cv, i) => {
+                            if (i) pdf.addPage([F4.MM_W, F4.MM_H], 'portrait');
+                            pdf.addImage(cv.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, F4.MM_W, F4.MM_H, undefined, 'FAST');
+                        });
+                        pdf.setProperties({ title: 'Laporan Tutup Buku ' + ctx.label + ' - ' + ctx.acc, creator: 'Bendahara DCC' });
+                        pdf.save(ctx.fileBase + '.pdf'); // langsung terunduh, tanpa pratinjau
+                    } else {
+                        for (let i = 0; i < cvs.length; i++) {
+                            const blob = await new Promise(res => cvs[i].toBlob(res, 'image/jpeg', 0.95));
+                            tbSave(blob, ctx.fileBase + (cvs.length > 1 ? '_hal' + (i + 1) : '') + '.jpg');
+                            if (i < cvs.length - 1) await new Promise(res => setTimeout(res, 500));
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Gagal membuat berkas Tutup Buku:', err);
+                alert('Gagal membuat berkas: ' + (err && err.message ? err.message : err));
+            } finally {
+                if (built) built.host.remove();
+                if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); btn.innerHTML = orig; }
+            }
         }
 
         async function closePeriod() {
