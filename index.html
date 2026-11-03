@@ -719,10 +719,7 @@
             </section>
 
             <section id="page-tutup" class="page-section hidden space-y-4">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 no-print">
-                    <div><h2 class="text-lg font-bold">Tutup Buku</h2><p class="text-xs text-gray-500 dark:text-gray-400">Rekap per periode. Periode yang ditutup terkunci.</p></div>
-                    <input type="month" id="tbPeriod" onchange="renderTutupPage()" class="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold outline-none">
-                </div>
+                <div class="no-print"><h2 class="text-lg font-bold">Tutup Buku</h2><p class="text-xs text-gray-500 dark:text-gray-400">Laporan &amp; penguncian periode: bulanan, triwulan, tahunan Masehi, dan tahunan Hijriah. Saldo kas tidak pernah direset.</p></div>
                 <div id="tbContent" class="space-y-4"></div>
             </section>
 
@@ -1251,14 +1248,6 @@
             return { id: m.id, account: m.account, itemId: m.item_id, date: m.date, type: m.type, qty: Number(m.qty),
                 unitCost: Number(m.unit_cost || 0), unitPrice: Number(m.unit_price || 0), note: m.note || '', transactionId: m.transaction_id || null };
         }
-        function isPeriodClosed(acc, date) { return state.closings.some(c => c.account === acc && c.period === _ym(date) && c.status === 'closed'); }
-        function guardClosed(date) {
-            if (date && isPeriodClosed(state.currentAccount, date)) {
-                alert('Periode ' + _ym(date) + ' sudah DITUTUP. Data tidak bisa ditambah, diubah, atau dihapus. Buka kembali periode di menu Tutup Buku bila perlu koreksi.');
-                return true;
-            }
-            return false;
-        }
         function needSchema() {
             if (state.schemaMissing) { alert('Tabel Stok/Tutup Buku belum dibuat di database. Jalankan skrip migrasi_stok_tutup_buku.sql di Supabase terlebih dahulu.'); return true; }
             return !initSupabaseClient();
@@ -1287,8 +1276,8 @@
         }
 
         function computePeriod(acc, period) {
-            const start = period + '-01';
-            const next = new Date(Date.UTC(+period.slice(0, 4), +period.slice(5, 7), 1)).toISOString().slice(0, 10);
+            const dsc = periodDescFromKey(period);
+            const start = dsc.start, next = dsc.next;
             const txs = state.transactions.filter(t => t.account === acc);
             const trs = state.transfers.filter(t => t.account === acc);
             const o = (state.optionsPerAccount[acc]) || { in: { cashTypes: [] }, out: { cashTypes: [] } };
@@ -1327,7 +1316,8 @@
                 }
             });
             const assetBuy = state.assets.filter(a => a.account === acc && a.date >= start && a.date < next).reduce((t, a) => t + a.qty * a.price, 0);
-            return { period, cash, inCat, outCat, totIn, totOut, net: totIn - totOut,
+            return { period, type: dsc.type, name: dsc.name, startDate: dsc.start, endDate: dsc.end, days: dsc.days,
+                txCount: txs.filter(t => t.date >= start && t.date < next).length, trCount: trs.filter(t => t.date >= start && t.date < next).length, cash, inCat, outCat, totIn, totOut, net: totIn - totOut,
                 totalOpen: cash.reduce((t, c) => t + c.open, 0), totalClose: cash.reduce((t, c) => t + c.close, 0),
                 inv: { open: invOpen, purchases, cogs, adjLoss, close: invClose, salesGoods, grossProfit: salesGoods - cogs }, assetBuy };
         }
@@ -1511,45 +1501,307 @@
             refreshCurrentPage();
         }
 
-        // ---------- Halaman Tutup Buku ----------
-        function renderTutupPage() {
-            const box = _g('tbContent'); if (!box) return;
-            const inp = _g('tbPeriod'); if (!inp.value) inp.value = _ym(_today());
-            if (state.schemaMissing) { box.innerHTML = schemaWarn(); return; }
-            const acc = state.currentAccount, period = inp.value;
-            const closing = state.closings.find(c => c.account === acc && c.period === period);
+        // ==========================================================
+        // PERIODE AKUNTANSI MULTI-PERIODE (Bulanan, Triwulan, Tahunan Masehi, Tahunan Hijriah)
+        // Satu sumber data transaksi. Tutup buku = laporan (snapshot) + penguncian tanggal, bukan penggandaan/reset saldo.
+        // Kunci periode: M "2026-11" | Q "2026-Q4" | Y "Y2026" | H "H1448-UQ" (UQ=Umm al-Qura, CV=Sipil/Tabular)
+        // ==========================================================
+        const ID_MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const HJ_MONTHS = ['Muharram', 'Safar', 'Rabiul Awal', 'Rabiul Akhir', 'Jumadil Awal', 'Jumadil Akhir', 'Rajab', 'Syaban', 'Ramadhan', 'Syawal', 'Dzulqadah', 'Dzulhijjah'];
+        const HJ_CALS = { UQ: { label: 'Umm al-Qura', intl: 'islamic-umalqura' }, CV: { label: 'Sipil / Tabular', intl: 'islamic-civil' } };
+        const PERIOD_TYPES = { M: 'Bulanan', Q: 'Triwulan', Y: 'Tahunan Masehi', H: 'Tahunan Hijriah' };
+        const ROMAN = ['I', 'II', 'III', 'IV'];
+        const _p2 = n => String(n).padStart(2, '0');
+        function dAdd(s, n) { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+        function dDiff(a, b) { return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 864e5); }
+        function dFmt(s) { return new Date(s + 'T00:00:00Z').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }); }
+        function dtFmt(iso) { return new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+
+        // Konversi Masehi -> Hijriah memakai Intl (ICU) bawaan browser; tanggal transaksi asli tidak pernah diubah.
+        const _hjFmt = {}, _hjStartCache = {};
+        function hjOf(dateStr, c) {
+            const f = _hjFmt[c] || (_hjFmt[c] = new Intl.DateTimeFormat('en-u-ca-' + HJ_CALS[c].intl + '-nu-latn', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }));
+            const o = {};
+            f.formatToParts(new Date(dateStr + 'T00:00:00Z')).forEach(p => { if (p.type === 'day' || p.type === 'month' || p.type === 'year') o[p.type] = parseInt(p.value, 10); });
+            return o;
+        }
+        // Tanggal Masehi untuk 1 Muharram tahun Y (dicari dengan memindai di sekitar perkiraan astronomis)
+        function hjStart(Y, c) {
+            const k = c + Y; if (_hjStartCache[k]) return _hjStartCache[k];
+            const base = new Date(Date.UTC(622, 6, 16) + (Y - 1) * 354.36707 * 864e5).toISOString().slice(0, 10);
+            for (let o = -60; o <= 60; o++) {
+                const s = dAdd(base, o), h = hjOf(s, c);
+                if (h.year === Y && h.month === 1 && h.day === 1) return (_hjStartCache[k] = s);
+            }
+            return (_hjStartCache[k] = base);
+        }
+
+        const _descCache = {};
+        function periodDescFromKey(key) {
+            if (_descCache[key] !== undefined) return _descCache[key];
+            let m, d = null;
+            if ((m = /^(\d{4})-(\d{2})$/.exec(key))) {
+                const y = +m[1], mo = +m[2];
+                if (mo >= 1 && mo <= 12) d = { type: 'M', year: y, month: mo, q: Math.ceil(mo / 3), name: ID_MONTHS[mo - 1] + ' ' + y, start: `${y}-${_p2(mo)}-01`, next: mo === 12 ? `${y + 1}-01-01` : `${y}-${_p2(mo + 1)}-01` };
+            } else if ((m = /^(\d{4})-Q([1-4])$/.exec(key))) {
+                const y = +m[1], q = +m[2];
+                d = { type: 'Q', year: y, q, name: 'Triwulan ' + ROMAN[q - 1] + ' ' + y, start: `${y}-${_p2((q - 1) * 3 + 1)}-01`, next: q === 4 ? `${y + 1}-01-01` : `${y}-${_p2(q * 3 + 1)}-01` };
+            } else if ((m = /^Y(\d{4})$/.exec(key))) {
+                const y = +m[1];
+                d = { type: 'Y', year: y, name: 'Tahun ' + y + ' (Masehi)', start: `${y}-01-01`, next: `${y + 1}-01-01` };
+            } else if ((m = /^H(\d{3,4})-(UQ|CV)$/.exec(key))) {
+                const y = +m[1], c = m[2];
+                d = { type: 'H', hy: y, cal: c, name: 'Tahun ' + y + ' H (' + HJ_CALS[c].label + ')', start: hjStart(y, c), next: hjStart(y + 1, c) };
+            }
+            if (d) { d.key = key; d.end = dAdd(d.next, -1); d.days = dDiff(d.start, d.next); d.typeLabel = PERIOD_TYPES[d.type]; }
+            return (_descCache[key] = d);
+        }
+        function tbKey(s) {
+            if (s.t === 'M') return `${s.y}-${_p2(s.m)}`;
+            if (s.t === 'Q') return `${s.y}-Q${s.q}`;
+            if (s.t === 'Y') return `Y${s.y}`;
+            return `H${s.hy}-${s.cal}`;
+        }
+        function tbPrevSel(s) {
+            const n = Object.assign({}, s);
+            if (n.t === 'M') { n.m--; if (n.m < 1) { n.m = 12; n.y--; } n.q = Math.ceil(n.m / 3); }
+            else if (n.t === 'Q') { n.q--; if (n.q < 1) { n.q = 4; n.y--; } }
+            else if (n.t === 'Y') n.y--;
+            else n.hy--;
+            return n;
+        }
+        function dateInPeriod(date, d) { return !!d && date >= d.start && date < d.next; }
+
+        // ---------- Penguncian: tanggal terkunci bila berada dalam periode berstatus CLOSED (jenis apa pun) ----------
+        function lockingClosing(acc, date) {
+            return state.closings.find(c => {
+                if (c.account !== acc || c.status !== 'closed') return false;
+                const d = periodDescFromKey(c.period);
+                return dateInPeriod(date, d);
+            });
+        }
+        function isPeriodClosed(acc, date) { return !!lockingClosing(acc, date); }
+        function guardClosed(date) {
+            const c = date ? lockingClosing(state.currentAccount, date) : null;
+            if (c) {
+                const d = periodDescFromKey(c.period);
+                alert('Tanggal ' + date + ' berada pada periode ' + (d ? d.name : c.period) + ' yang sudah DITUTUP. Data tidak bisa ditambah, diubah, atau dihapus. Buat transaksi penyesuaian pada periode yang masih terbuka, atau buka kembali periode di menu Tutup Buku (tercatat di jejak audit).');
+                return true;
+            }
+            return false;
+        }
+
+        // ---------- Status periode (hijau/biru/abu-abu/merah) ----------
+        const ST = {
+            CLOSED: { l: 'CLOSED', cls: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700', dot: '#16A34A' },
+            ACTIVE: { l: 'ACTIVE', cls: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700', dot: '#2563EB' },
+            FUTURE: { l: 'BELUM MULAI', cls: 'bg-gray-100 text-gray-500 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600', dot: '#9CA3AF' },
+            ISSUE: { l: 'MASALAH', cls: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700', dot: '#DC2626' },
+            REOPENED: { l: 'DIBUKA KEMBALI', cls: 'bg-amber-100 text-amber-700 border-amber-300', dot: '#F59E0B' }
+        };
+        function tbStatus(acc, desc) {
+            const cl = state.closings.find(c => c.account === acc && c.period === desc.key);
+            const live = computePeriod(acc, desc.key);
+            if (cl && cl.status === 'closed' && cl.snapshot && cl.snapshot.cash) {
+                const s = cl.snapshot;
+                const diff = Math.abs((s.totIn || 0) - live.totIn) + Math.abs((s.totOut || 0) - live.totOut) + Math.abs((s.totalOpen || 0) - live.totalOpen) + Math.abs((s.totalClose || 0) - live.totalClose);
+                return diff > 0.5 ? { s: 'ISSUE', msg: 'Data berubah setelah penutupan (selisih ' + formatRp(diff) + ')' } : { s: 'CLOSED' };
+            }
+            if (desc.start > _today()) return { s: 'FUTURE' };
+            if (live.cash.some(c => c.close < -0.5)) return { s: 'ISSUE', msg: 'Ada kas dengan saldo minus' };
+            return { s: cl && cl.status === 'open' ? 'REOPENED' : 'ACTIVE', activeBlue: true };
+        }
+        function tbBadge(st, extra) { const x = ST[st.s] || ST.ACTIVE; return `<span class="px-2 py-0.5 rounded-lg border text-[10px] font-extrabold ${x.cls}" ${st.msg ? `title="${esc(st.msg)}"` : ''}>${x.l}${extra || ''}</span>`; }
+
+        // ---------- State & helper UI ----------
+        let TB = null;
+        function tbInit() {
+            if (TB) return;
+            const today = _today(), y = +today.slice(0, 4), m = +today.slice(5, 7);
+            TB = { tab: 'M', calYear: y, find: '', pv: null, busy: false,
+                main: { t: 'M', y, m, q: Math.ceil(m / 3), hy: hjOf(today, 'UQ').year, cal: 'UQ' }, cmp: null,
+                hist: { type: 'ALL', gy: 'ALL', hy: 'ALL', month: 'ALL', q: 'ALL', status: 'ALL' } };
+            TB.cmp = tbPrevSel(TB.main);
+        }
+        function tbDataMinDate(acc) {
+            const ds = [...state.transactions, ...state.transfers, ...state.assets].filter(r => r.account === acc && r.date).map(r => r.date).sort();
+            return ds.length ? ds[0] : _today();
+        }
+        function tbYears() {
+            const acc = state.currentAccount, cy = +_today().slice(0, 4);
+            let min = Math.min(cy - 1, +tbDataMinDate(acc).slice(0, 4)), max = cy + 1;
+            [TB.main.y, TB.cmp && TB.cmp.y, TB.calYear].forEach(y => { if (y) { min = Math.min(min, y); max = Math.max(max, y); } });
+            const a = []; for (let y = min; y <= max; y++) a.push(y); return a;
+        }
+        function tbHijriYears() {
+            const acc = state.currentAccount;
+            let min = hjOf(tbDataMinDate(acc), 'UQ').year - 1, max = hjOf(_today(), 'UQ').year + 1;
+            [TB.main.hy, TB.cmp && TB.cmp.hy].forEach(y => { if (y) { min = Math.min(min, y); max = Math.max(max, y); } });
+            const a = []; for (let y = min; y <= max; y++) a.push(y); return a;
+        }
+        function tbSet(who, f, v) {
+            const s = who === 'cmp' ? TB.cmp : TB.main;
+            if (f === 'cal' || f === 't') s[f] = v; else s[f] = parseInt(v, 10);
+            if (f === 'm') s.q = Math.ceil(s.m / 3);
+            if (who === 'main') { if (f === 'cal') TB.cmp.cal = v; TB.cmp = Object.assign(tbPrevSel(TB.main), f === 'cal' ? {} : {}); }
+            renderTutupPage();
+        }
+        function tbTab(t) { if (t !== 'R') { TB.main.t = t; TB.cmp = tbPrevSel(TB.main); } TB.tab = t; renderTutupPage(); }
+        function tbOpenKey(key) {
+            const d = periodDescFromKey(key); if (!d) return;
+            const m = TB.main; m.t = d.type;
+            if (d.type === 'M') { m.y = d.year; m.m = d.month; m.q = d.q; }
+            if (d.type === 'Q') { m.y = d.year; m.q = d.q; }
+            if (d.type === 'Y') m.y = d.year;
+            if (d.type === 'H') { m.hy = d.hy; m.cal = d.cal; }
+            TB.tab = d.type; TB.cmp = tbPrevSel(m); renderTutupPage();
+            setTimeout(() => { const e = _g('tbReport'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+        }
+        function tbCurrent(sel) {
+            const acc = state.currentAccount, key = tbKey(sel || TB.main), desc = periodDescFromKey(key);
+            const closing = state.closings.find(c => c.account === acc && c.period === key);
             const isClosed = !!closing && closing.status === 'closed';
-            const d = isClosed && closing.snapshot && closing.snapshot.cash ? closing.snapshot : computePeriod(acc, period);
-            const label = new Date(period + '-01T00:00:00').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            const d = isClosed && closing.snapshot && closing.snapshot.cash ? closing.snapshot : computePeriod(acc, key);
+            return { acc, key, desc, closing, isClosed, d };
+        }
+        const _selCls = 'p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold outline-none';
+        function tbSelHtml(handler, opts, cur) {
+            return `<select onchange="${handler}" class="${_selCls}">${opts.map(([v, l]) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+        }
+        function tbPickerHtml(who, s, withType) {
+            const yrs = tbYears().map(y => [y, y]), set = f => `tbSet('${who}','${f}',this.value)`;
+            const parts = [];
+            if (withType) parts.push(tbSelHtml(set('t'), Object.entries(PERIOD_TYPES), s.t));
+            if (s.t === 'M') { parts.push(tbSelHtml(set('m'), ID_MONTHS.map((n, i) => [i + 1, n]), s.m)); parts.push(tbSelHtml(set('y'), yrs, s.y)); }
+            if (s.t === 'Q') { parts.push(tbSelHtml(set('q'), ROMAN.map((n, i) => [i + 1, 'Triwulan ' + n]), s.q)); parts.push(tbSelHtml(set('y'), yrs, s.y)); }
+            if (s.t === 'Y') parts.push(tbSelHtml(set('y'), yrs, s.y));
+            if (s.t === 'H') { parts.push(tbSelHtml(set('hy'), tbHijriYears().map(y => [y, y + ' H']), s.hy)); parts.push(tbSelHtml(set('cal'), Object.entries(HJ_CALS).map(([k, v]) => [k, v.label]), s.cal)); }
+            return `<div class="flex flex-wrap gap-2 items-center">${parts.join('')}</div>`;
+        }
+
+        // ---------- Ringkasan atas ----------
+        function tbSummaryHtml(acc) {
+            const today = _today(), cur = periodDescFromKey(today.slice(0, 7)), st = tbStatus(acc, cur);
+            const closed = state.closings.filter(c => c.account === acc && c.status === 'closed');
+            const last = closed.slice().sort((a, b) => String(b.closedAt || '') < String(a.closedAt || '') ? -1 : 1)[0];
+            const lastD = last ? periodDescFromKey(last.period) : null;
+            let bal = 0; state.transactions.filter(t => t.account === acc).forEach(t => { bal += (t.type === 'in' ? 1 : -1) * t.qty * t.amount; });
+            const sel = tbCurrent(), selSt = tbStatus(acc, sel.desc);
+            const c = (t, v, s) => `<div class="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700"><div class="text-[10px] font-bold text-gray-500 uppercase">${t}</div><div class="font-extrabold text-sm mt-1 truncate">${v}</div>${s ? `<div class="mt-1">${s}</div>` : ''}</div>`;
+            return `<div class="grid grid-cols-2 md:grid-cols-5 gap-2 no-print">
+                ${c('Periode Aktif', esc(cur.name), tbBadge(st))}
+                ${c('Terakhir Ditutup', lastD ? esc(lastD.name) : '-', last && last.closedAt ? `<span class="text-[10px] text-gray-400">${dtFmt(last.closedAt)}</span>` : '')}
+                ${c('Total Saldo Saat Ini', `<span class="text-bri-blue">${formatRp(bal)}</span>`, '<span class="text-[10px] text-gray-400">Dari transaksi sah</span>')}
+                ${c('Periode Ditutup', closed.length + ' periode', '')}
+                ${c('Status Periode Terpilih', esc(sel.desc.name), tbBadge(selSt))}
+            </div>`;
+        }
+
+        // ---------- Kalender keuangan interaktif ----------
+        function tbCalendarHtml(acc) {
+            const y = TB.calYear, cal = TB.main.cal;
+            const cell = (key, title, sub, small) => {
+                const d = periodDescFromKey(key), st = tbStatus(acc, d), x = ST[st.s] || ST.ACTIVE;
+                return `<button onclick="tbOpenKey('${key}')" title="${esc(st.msg || d.name)}" class="text-left rounded-xl border p-2 transition transform active:scale-95 hover:shadow ${x.cls}"><div class="font-extrabold text-xs">${title}</div><div class="text-[9px] font-bold">${x.l}</div>${sub ? `<div class="text-[9px] opacity-70 truncate">${sub}</div>` : ''}</button>`;
+            };
+            const months = ID_MONTHS.map((n, i) => {
+                const d = periodDescFromKey(`${y}-${_p2(i + 1)}`), h = hjOf(d.start, cal);
+                return cell(d.key, n.slice(0, 3), `${h.day} ${HJ_MONTHS[h.month - 1].slice(0, 5)} ${h.year}H`);
+            }).join('');
+            const qs = [1, 2, 3, 4].map(q => cell(`${y}-Q${q}`, 'Triwulan ' + ROMAN[q - 1], '')).join('');
+            const h1 = hjOf(`${y}-01-01`, cal).year, h2 = hjOf(`${y}-12-31`, cal).year, hs = [];
+            for (let h = h1; h <= h2; h++) { const d = periodDescFromKey(`H${h}-${cal}`); hs.push(cell(d.key, h + ' H', dFmt(d.start).replace(/ \d{4}$/, '') + ' - ' + dFmt(d.end).replace(/ \d{4}$/, ''))); }
+            const find = TB.find && /^\d{4}-\d{2}-\d{2}$/.test(TB.find) ? (() => {
+                const v = TB.find, hy = hjOf(v, cal).year;
+                const keys = [v.slice(0, 7), `${v.slice(0, 4)}-Q${Math.ceil(+v.slice(5, 7) / 3)}`, `Y${v.slice(0, 4)}`, `H${hy}-${cal}`];
+                return `<div class="flex flex-wrap gap-1.5 mt-2">${keys.map(k => { const d = periodDescFromKey(k); return `<button onclick="tbOpenKey('${k}')" class="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-gray-700 text-bri-blue dark:text-blue-300 text-[11px] font-bold">${esc(d.typeLabel)}: ${esc(d.name)} ${tbBadge(tbStatus(acc, d))}</button>`; }).join('')}</div>`;
+            })() : '';
+            const legend = [['CLOSED', 'Ditutup'], ['ACTIVE', 'Aktif'], ['FUTURE', 'Belum dimulai'], ['ISSUE', 'Masalah / selisih']].map(([k, l]) => `<span class="inline-flex items-center gap-1 text-[10px] text-gray-500"><i class="inline-block w-2.5 h-2.5 rounded-full" style="background:${ST[k].dot}"></i>${l}</span>`).join('');
+            return `<details open class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 no-print"><summary class="cursor-pointer text-xs font-bold text-gray-600 dark:text-gray-300 uppercase"><i class="fa-solid fa-calendar-days mr-1"></i> Kalender Keuangan</summary>
+                <div class="mt-3 space-y-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        ${tbSelHtml(`TB.calYear=parseInt(this.value,10);renderTutupPage()`, tbYears().map(v => [v, 'Tahun ' + v]), y)}
+                        ${tbSelHtml(`tbSet('main','cal',this.value)`, Object.entries(HJ_CALS).map(([k, v]) => [k, 'Hijriah: ' + v.label]), cal)}
+                        <input type="date" value="${esc(TB.find)}" onchange="TB.find=this.value;renderTutupPage()" class="${_selCls}" title="Cari periode berdasarkan tanggal">
+                    </div>
+                    ${find}
+                    <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">${months}</div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${qs}</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">${cell(`Y${y}`, 'Tahun ' + y + ' (Masehi)', '')}${hs.join('')}</div>
+                    <div class="flex flex-wrap gap-3">${legend}</div>
+                </div></details>`;
+        }
+
+        function tbTabsHtml() {
+            const tabs = [['M', 'Bulanan'], ['Q', 'Triwulan'], ['Y', 'Tahunan Masehi'], ['H', 'Tahunan Hijriah'], ['R', 'Riwayat']];
+            return `<div class="flex gap-1.5 overflow-x-auto no-print pb-1">${tabs.map(([k, l]) => `<button onclick="tbTab('${k}')" class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition ${TB.tab === k ? 'bg-bri-blue text-white shadow' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'}">${l}</button>`).join('')}</div>`;
+        }
+
+        // ---------- Perbandingan ----------
+        function tbCompareHtml(acc, cur) {
+            const other = tbCurrent(TB.cmp), a = cur.d, b = other.d;
+            const picker = `<div class="space-y-2 no-print"><div class="text-[11px] font-bold text-gray-500 uppercase">Bandingkan dengan</div>${tbPickerHtml('cmp', TB.cmp, true)}</div>`;
+            if (other.key === cur.key) return `<div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-3">${picker}<div class="text-xs text-gray-400">Pilih periode pembanding yang berbeda.</div></div>`;
+            const dA = cur.desc.days, dB = other.desc.days;
+            const rows = [['Pemasukan', a.totIn, b.totIn, 1], ['Pengeluaran', a.totOut, b.totOut, -1], ['Surplus / defisit', a.totIn - a.totOut, b.totIn - b.totOut, 1], ['Saldo akhir', a.totalClose, b.totalClose, 1]];
+            if (dA !== dB) rows.push(['Rata-rata pemasukan / hari', a.totIn / dA, b.totIn / dB, 1], ['Rata-rata pengeluaran / hari', a.totOut / dA, b.totOut / dB, -1], ['Rata-rata surplus / hari', (a.totIn - a.totOut) / dA, (b.totIn - b.totOut) / dB, 1]);
+            const tr = rows.map(([n, x, y, good]) => {
+                const dl = x - y, pct = y ? (dl / Math.abs(y)) * 100 : null, ok = dl === 0 ? '' : (dl * good > 0 ? 'text-green-600' : 'text-red-500');
+                return `<tr class="border-t border-gray-100 dark:border-gray-700"><td class="p-2 font-semibold">${n}</td><td class="p-2 text-right">${formatRp(x)}</td><td class="p-2 text-right">${formatRp(y)}</td><td class="p-2 text-right font-bold ${ok}">${dl > 0 ? '+' : ''}${formatRp(dl)}</td><td class="p-2 text-right font-bold ${ok}">${pct === null ? '-' : (pct > 0 ? '+' : '') + pct.toFixed(1).replace('.', ',') + '%'}</td></tr>`;
+            }).join('');
+            let notes = '';
+            if (dA !== dB) notes += `<div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-[11px]"><b>Durasi berbeda:</b> ${esc(cur.desc.name)} = ${dA} hari, ${esc(other.desc.name)} = ${dB} hari. Gunakan baris rata-rata per hari agar perbandingan adil.</div>`;
+            if (cur.desc.type !== other.desc.type) notes += `<div class="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 text-[11px]"><b>Jenis periode berbeda</b> (${esc(cur.desc.typeLabel)} vs ${esc(other.desc.typeLabel)}).${cur.desc.start < other.desc.next && other.desc.start < cur.desc.next ? ' Rentang tanggal saling beririsan, sehingga transaksi yang sama ikut terhitung di kedua periode; hasilnya bukan untuk dijumlahkan.' : ''}</div>`;
+            return `<div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-3">${picker}
+                <div class="text-[10px] text-gray-400">${esc(cur.desc.name)}: ${dFmt(cur.desc.start)} - ${dFmt(cur.desc.end)} (${dA} hari) &nbsp;|&nbsp; ${esc(other.desc.name)}: ${dFmt(other.desc.start)} - ${dFmt(other.desc.end)} (${dB} hari)</div>
+                ${notes}
+                <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px] text-gray-400 uppercase"><tr><th class="p-2 text-left">Uraian</th><th class="p-2 text-right">${esc(cur.desc.name)}</th><th class="p-2 text-right">${esc(other.desc.name)}</th><th class="p-2 text-right">Perubahan</th><th class="p-2 text-right">%</th></tr></thead><tbody>${tr}</tbody></table></div></div>`;
+        }
+
+        // ---------- Laporan satu periode ----------
+        function tbReportHtml(acc) {
+            const cur = tbCurrent(), d = cur.d, iv = d.inv, desc = cur.desc, closing = cur.closing, st = tbStatus(acc, desc);
             const card = (t, b) => `<div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-2"><div class="text-[11px] font-bold text-gray-500 uppercase">${t}</div>${b}</div>`;
             const line = (a, b, cls) => `<div class="flex justify-between text-xs"><span>${a}</span><span class="font-bold ${cls || ''}">${b}</span></div>`;
             const catRows = o => Object.keys(o).length ? Object.entries(o).map(([k, v]) => line(esc(k), formatRp(v))).join('') : '<div class="text-xs text-gray-400">Tidak ada.</div>';
             const cashRows = d.cash.map(c => `<tr class="border-t border-gray-100 dark:border-gray-700"><td class="p-2 font-semibold">${esc(c.name)}</td><td class="p-2 text-right">${formatRp(c.open)}</td><td class="p-2 text-right text-green-600">${formatRp(c.inn)}</td><td class="p-2 text-right text-red-500">${formatRp(c.out)}</td><td class="p-2 text-right">${formatRp(c.trIn - c.trOut)}</td><td class="p-2 text-right font-bold ${c.close < 0 ? 'text-red-500' : ''}">${formatRp(c.close)}</td></tr>`).join('');
-            const iv = d.inv;
-            const hist = state.closings.filter(c => c.account === acc).sort((a, b) => a.period < b.period ? 1 : -1).map(c => `<div class="flex justify-between items-center text-xs py-1.5 border-t border-gray-100 dark:border-gray-700"><span class="font-semibold">${c.period} <span class="px-1.5 py-0.5 rounded ${c.status === 'closed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'} text-[10px]">${c.status === 'closed' ? 'Ditutup' : 'Dibuka kembali'}</span></span><span>${c.status === 'closed' && c.snapshot && c.snapshot.cash ? 'Saldo akhir ' + formatRp(c.snapshot.totalClose) : ''} <button onclick="_g('tbPeriod').value='${c.period}';renderTutupPage()" class="ml-1 text-blue-600 font-bold">Lihat</button></span></div>`).join('');
-            box.innerHTML = `
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div class="font-extrabold text-base">${label} - ${esc(acc)}</div>
-                    <span class="px-2.5 py-1 rounded-xl text-[11px] font-bold ${isClosed ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${isClosed ? '<i class="fa-solid fa-lock"></i> DITUTUP' : '<i class="fa-solid fa-lock-open"></i> TERBUKA'}</span>
+            const txCount = d.txCount != null ? d.txCount : state.transactions.filter(t => t.account === acc && dateInPeriod(t.date, desc)).length;
+            const audit = closing && closing.snapshot && Array.isArray(closing.snapshot.audit) ? closing.snapshot.audit : [];
+            const auditHtml = audit.length ? card('Jejak Audit', audit.slice().reverse().map(a => `<div class="text-[11px] py-1 border-t border-gray-100 dark:border-gray-700"><b class="${a.a === 'CLOSE' ? 'text-green-600' : 'text-amber-600'}">${a.a === 'CLOSE' ? 'Ditutup' : 'Dibuka kembali'}</b> oleh ${esc(a.by || 'Admin')} &bull; ${dtFmt(a.at)}${a.note ? '<br><span class="text-gray-500">' + esc(a.note) + '</span>' : ''}</div>`).join('')) : '';
+            const closedInfo = cur.isClosed && closing.closedAt ? `<span class="text-[11px] text-gray-500">Ditutup ${dtFmt(closing.closedAt)} oleh ${esc((closing.snapshot && closing.snapshot.closedBy) || 'Admin')}</span>` : '';
+            return `<div id="tbReport" class="space-y-4">
+                <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-3 no-print">
+                    <div class="text-[11px] font-bold text-gray-500 uppercase">Pilih ${esc(desc.typeLabel)}</div>
+                    ${tbPickerHtml('main', TB.main, false)}
                 </div>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div><div class="font-extrabold text-base">${esc(desc.name)} - ${esc(acc)}</div>
+                    <div class="text-[11px] text-gray-500">${dFmt(desc.start)} s/d ${dFmt(desc.end)} &bull; ${desc.days} hari &bull; ${txCount} transaksi</div>
+                    ${desc.type === 'H' ? `<div class="text-[10px] text-gray-400">1 Muharram ${desc.hy} H = ${dFmt(desc.start)}; metode ${HJ_CALS[desc.cal].label}</div>` : ''}</div>
+                    <div class="text-right">${tbBadge(st)}<div>${closedInfo}</div></div>
+                </div>
+                ${st.msg ? `<div class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${esc(st.msg)}</div>` : ''}
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
                     ${card('Saldo Awal', `<div class="font-black text-sm">${formatRp(d.totalOpen)}</div>`)}
                     ${card('Pemasukan', `<div class="font-black text-sm text-green-600">${formatRp(d.totIn)}</div>`)}
                     ${card('Pengeluaran', `<div class="font-black text-sm text-red-500">${formatRp(d.totOut)}</div>`)}
                     ${card('Saldo Akhir', `<div class="font-black text-sm text-bri-blue">${formatRp(d.totalClose)}</div>`)}
                 </div>
-                ${card('Mutasi per Kas', `<div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px] text-gray-400 uppercase"><tr><th class="p-2 text-left">Kas</th><th class="p-2 text-right">Awal</th><th class="p-2 text-right">Masuk</th><th class="p-2 text-right">Keluar</th><th class="p-2 text-right">Transfer</th><th class="p-2 text-right">Akhir</th></tr></thead><tbody>${cashRows || '<tr><td colspan="6" class="p-2 text-gray-400">Tidak ada kas.</td></tr>'}</tbody></table></div>`)}
+                ${card('Surplus / Defisit Periode', `<div class="font-black text-lg ${d.net >= 0 ? 'text-green-600' : 'text-red-500'}">${d.net >= 0 ? 'Surplus ' : 'Defisit '}${formatRp(Math.abs(d.net))}</div>`)}
+                ${card('Rincian per Kas', `<div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px] text-gray-400 uppercase"><tr><th class="p-2 text-left">Kas</th><th class="p-2 text-right">Awal</th><th class="p-2 text-right">Masuk</th><th class="p-2 text-right">Keluar</th><th class="p-2 text-right">Transfer</th><th class="p-2 text-right">Akhir</th></tr></thead><tbody>${cashRows || '<tr><td colspan="6" class="p-2 text-gray-400">Tidak ada kas.</td></tr>'}</tbody></table></div>`)}
                 <div class="grid md:grid-cols-2 gap-2">
                     ${card('Pemasukan per Kategori', catRows(d.inCat))}
                     ${card('Pengeluaran per Kategori', catRows(d.outCat))}
                 </div>
                 ${card('Persediaan & Laba Kotor', line('Persediaan awal', formatRp(iv.open)) + line('+ Pembelian stok', formatRp(iv.purchases)) + line('- HPP barang terjual', formatRp(iv.cogs)) + line('- Rugi/selisih penyesuaian', formatRp(iv.adjLoss)) + line('Persediaan akhir', formatRp(iv.close), 'text-bri-blue') + '<hr class="border-gray-100 dark:border-gray-700">' + line('Penjualan barang (dari Stok)', formatRp(iv.salesGoods)) + line('Laba kotor', formatRp(iv.grossProfit), iv.grossProfit >= 0 ? 'text-green-600' : 'text-red-500'))}
                 ${card('Lainnya', line('Pengadaan aset (tidak mengurangi kas)', formatRp(d.assetBuy)) + line('Surplus / defisit kas periode', formatRp(d.net), d.net >= 0 ? 'text-green-600' : 'text-red-500'))}
+                ${cur.isClosed && closing.note ? card('Catatan Penutupan', `<div class="text-xs whitespace-pre-wrap">${esc(closing.note)}</div>`) : ''}
+                ${auditHtml}
+                ${tbCompareHtml(acc, cur)}
                 <div class="no-print bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-3">
-                    <textarea id="tbNote" rows="2" ${isClosed ? 'disabled' : ''} placeholder="Catatan penutupan (opsional)" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none text-xs">${esc(closing ? closing.note : '')}</textarea>
                     <div class="flex gap-2">
-                        ${isClosed ? '<button onclick="reopenPeriod()" class="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl text-xs">Buka Kembali Periode</button>' : '<button onclick="closePeriod()" class="flex-1 py-3 bg-purple-700 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-lock"></i> Tutup Periode Ini</button>'}
-                        <button onclick="window.print()" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 font-bold rounded-xl text-xs" title="Cetak"><i class="fa-solid fa-print"></i></button>
+                        ${cur.isClosed ? '<button onclick="reopenPeriod()" class="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-lock-open"></i> Buka Kembali Periode</button>' : '<button onclick="tbPreviewClose()" class="flex-1 py-3 bg-purple-700 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-magnifying-glass-chart"></i> Preview &amp; Tutup Buku</button>'}
+                        <button onclick="window.print()" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 font-bold rounded-xl text-xs" title="Cetak Laporan"><i class="fa-solid fa-print"></i></button>
                     </div>
                     <div>
                         <div class="text-[11px] font-bold text-gray-500 uppercase mb-2"><i class="fa-solid fa-download mr-1"></i> Unduh Laporan (F4)</div>
@@ -1560,28 +1812,63 @@
                         </div>
                         <p class="text-[10px] text-gray-400 mt-1.5">Ukuran kertas F4 (215 x 330 mm). PDF dan JPG langsung terunduh tanpa pratinjau.</p>
                     </div>
-                </div>
-                ${hist ? card('Riwayat Penutupan', hist) : ''}`;
+                </div></div>`;
         }
 
+        // ---------- Riwayat tutup buku + filter ----------
+        function tbHF(f, v) { TB.hist[f] = v; renderTutupPage(); }
+        function tbHistoryHtml(acc) {
+            const H = TB.hist;
+            const rows = state.closings.filter(c => c.account === acc).map(c => ({ c, d: periodDescFromKey(c.period) })).filter(x => x.d).map(x => {
+                x.st = x.c.status === 'closed' ? tbStatus(acc, x.d) : { s: 'REOPENED' };
+                x.gy = +x.d.start.slice(0, 4); x.hy = x.d.type === 'H' ? x.d.hy : hjOf(x.d.start, 'UQ').year; x.mo = +x.d.start.slice(5, 7); x.qq = Math.ceil(x.mo / 3);
+                return x;
+            }).filter(x => (H.type === 'ALL' || x.d.type === H.type)
+                && (H.gy === 'ALL' || x.gy === +H.gy) && (H.hy === 'ALL' || x.hy === +H.hy)
+                && (H.month === 'ALL' || (x.d.type === 'M' && x.mo === +H.month))
+                && (H.q === 'ALL' || (x.d.type === 'Q' && x.qq === +H.q))
+                && (H.status === 'ALL' || (H.status === 'CLOSED' && x.st.s === 'CLOSED') || (H.status === 'OPEN' && x.st.s === 'REOPENED') || (H.status === 'ISSUE' && x.st.s === 'ISSUE')))
+                .sort((a, b) => a.d.start < b.d.start ? 1 : a.d.start > b.d.start ? -1 : (a.d.type < b.d.type ? -1 : 1));
+            const all = v => ['ALL', v];
+            const f = (k, opts) => tbSelHtml(`tbHF('${k}',this.value)`, [['ALL', opts[0]], ...opts[1]], H[k]);
+            const filters = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                ${f('type', ['Semua jenis', Object.entries(PERIOD_TYPES)])}
+                ${f('gy', ['Semua tahun Masehi', tbYears().map(y => [y, y])])}
+                ${f('hy', ['Semua tahun Hijriah', tbHijriYears().map(y => [y, y + ' H'])])}
+                ${f('month', ['Semua bulan', ID_MONTHS.map((n, i) => [i + 1, n])])}
+                ${f('q', ['Semua triwulan', ROMAN.map((n, i) => [i + 1, 'Triwulan ' + n])])}
+                ${f('status', ['Semua status', [['CLOSED', 'Ditutup'], ['OPEN', 'Dibuka kembali'], ['ISSUE', 'Bermasalah']]])}
+            </div>`;
+            const tr = rows.map(x => `<tr class="border-t border-gray-100 dark:border-gray-700"><td class="p-2 font-semibold">${esc(x.d.name)}</td><td class="p-2">${esc(x.d.typeLabel)}</td><td class="p-2 whitespace-nowrap">${x.d.start} s/d ${x.d.end}</td><td class="p-2 text-right font-bold">${x.c.snapshot && x.c.snapshot.cash ? formatRp(x.c.snapshot.totalClose) : '-'}</td><td class="p-2">${tbBadge(x.st)}</td><td class="p-2 text-[10px]">${x.c.closedAt ? dtFmt(x.c.closedAt) : '-'}<br>${esc((x.c.snapshot && x.c.snapshot.closedBy) || 'Admin')}</td><td class="p-2"><button onclick="tbOpenKey('${x.c.period}')" class="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-[10px] font-bold">Lihat</button></td></tr>`).join('');
+            return `<div class="space-y-3"><div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-3 no-print"><div class="text-[11px] font-bold text-gray-500 uppercase"><i class="fa-solid fa-filter mr-1"></i> Filter Riwayat</div>${filters}</div>
+                <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-x-auto"><table class="w-full text-xs"><thead class="bg-gray-50 dark:bg-gray-700/50 text-[10px] text-gray-500 uppercase"><tr><th class="p-2 text-left">Periode</th><th class="p-2 text-left">Jenis</th><th class="p-2 text-left">Rentang</th><th class="p-2 text-right">Saldo Akhir</th><th class="p-2 text-left">Status</th><th class="p-2 text-left">Ditutup</th><th class="p-2"></th></tr></thead><tbody>${tr || '<tr><td colspan="7" class="p-4 text-center text-gray-400">Belum ada riwayat tutup buku yang sesuai filter.</td></tr>'}</tbody></table></div></div>`;
+        }
+
+        // ---------- Halaman Tutup Buku ----------
+        function renderTutupPage() {
+            const box = _g('tbContent'); if (!box) return;
+            if (state.schemaMissing) { box.innerHTML = schemaWarn(); return; }
+            tbInit();
+            const acc = state.currentAccount;
+            box.innerHTML = tbSummaryHtml(acc) + tbCalendarHtml(acc) + tbTabsHtml() + (TB.tab === 'R' ? tbHistoryHtml(acc) : tbReportHtml(acc));
+        }
 
         // ---------- Unduh Laporan Tutup Buku: PDF / Excel / JPG (ukuran F4 = 215 x 330 mm) ----------
         const F4 = { W: 813, H: 1247, MM_W: 215, MM_H: 330 }; // 813 x 1247 px = 215 x 330 mm pada 96 dpi
 
         function tbContext() {
-            const acc = state.currentAccount, period = _g('tbPeriod').value || _ym(_today());
-            const closing = state.closings.find(c => c.account === acc && c.period === period);
-            const isClosed = !!closing && closing.status === 'closed';
-            const d = isClosed && closing.snapshot && closing.snapshot.cash ? closing.snapshot : computePeriod(acc, period);
-            const noteEl = _g('tbNote');
+            tbInit();
+            const c = tbCurrent(), desc = c.desc, d = c.d;
             const fmtDate = x => new Date(x).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
             return {
-                acc, period, d, isClosed,
-                label: new Date(period + '-01T00:00:00').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
-                note: (noteEl ? noteEl.value : (closing ? closing.note : '') || '').trim().slice(0, 600),
+                acc: c.acc, period: c.key, d, isClosed: c.isClosed,
+                label: desc.name, typeLabel: desc.typeLabel, days: desc.days,
+                rangeText: dFmt(desc.start) + ' s/d ' + dFmt(desc.end),
+                txCount: d.txCount != null ? d.txCount : state.transactions.filter(t => t.account === c.acc && dateInPeriod(t.date, desc)).length,
+                note: c.isClosed && c.closing ? String(c.closing.note || '').trim().slice(0, 600) : '',
                 printed: fmtDate(new Date()),
-                closedAt: isClosed && closing.closedAt ? fmtDate(closing.closedAt) : '',
-                fileBase: 'Tutup_Buku_' + acc.replace(/[^\w]+/g, '_') + '_' + period
+                closedAt: c.isClosed && c.closing && c.closing.closedAt ? fmtDate(c.closing.closedAt) : '',
+                fileBase: 'Tutup_Buku_' + c.acc.replace(/[^\w]+/g, '_') + '_' + c.key
             };
         }
 
@@ -1723,7 +2010,7 @@
             const head1 = `<div class="f4-h1"><div class="f4-circ"></div><div class="f4-circ2"></div>
                 <div style="position:absolute;left:40px;top:24px"><div style="font-size:10.5px;font-weight:700;letter-spacing:.14em;color:#BBD6F2">BENDAHARA DCC 2.0 &bull; SISTEM KEUANGAN SEKTOR</div>
                 <div style="font-size:28px;font-weight:800;margin-top:6px;letter-spacing:.01em">LAPORAN TUTUP BUKU</div>
-                <div style="font-size:13px;font-weight:600;margin-top:4px;color:#E3EEFB">Periode ${esc(ctx.label)} &nbsp;&bull;&nbsp; Akun ${esc(ctx.acc)}</div></div>
+                <div style="font-size:13px;font-weight:600;margin-top:4px;color:#E3EEFB">Periode ${esc(ctx.label)} &nbsp;&bull;&nbsp; Akun ${esc(ctx.acc)}</div><div style="font-size:11px;margin-top:3px;color:#BBD6F2">${esc(ctx.typeLabel)} &bull; ${esc(ctx.rangeText)} &bull; ${ctx.days} hari &bull; ${ctx.txCount} transaksi</div></div>
                 <div style="position:absolute;right:40px;top:26px;text-align:right">${badge}<div style="font-size:10px;color:#BBD6F2;margin-top:8px">Dicetak: ${esc(ctx.printed)}</div>${ctx.closedAt ? `<div style="font-size:10px;color:#BBD6F2;margin-top:2px">Ditutup: ${esc(ctx.closedAt)}</div>` : ''}</div></div>`;
             const headN = `<div class="f4-hn"><span>LAPORAN TUTUP BUKU &bull; ${esc(ctx.acc).toUpperCase()}</span><span>${esc(ctx.label).toUpperCase()}</span></div>`;
 
@@ -1782,6 +2069,7 @@
             mergeRow('LAPORAN TUTUP BUKU', { font: { size: 18, bold: true, color: { argb: WHITE } }, fill: NAVY, height: 36 });
             mergeRow(`Akun: ${ctx.acc}   |   Periode: ${ctx.label}`, { font: { size: 11, bold: true, color: { argb: WHITE } }, fill: DARK, height: 22 });
             mergeRow(`Status: ${ctx.isClosed ? 'DITUTUP' + (ctx.closedAt ? ' pada ' + ctx.closedAt : '') : 'DRAFT (belum ditutup)'}   |   Dicetak: ${ctx.printed}`, { font: { size: 10, italic: true, color: { argb: 'FF1F2937' } }, fill: PALE, height: 20 });
+            mergeRow(`${ctx.typeLabel}: ${ctx.rangeText}   |   ${ctx.days} hari   |   ${ctx.txCount} transaksi`, { font: { size: 10, color: { argb: 'FF1F2937' } }, fill: LIGHT, height: 20 });
             for (let c = 1; c <= 6; c++) ws.getCell(r, c).fill = solid(ORANGE);
             ws.getRow(r).height = 4; r++;
             ws.getRow(r).height = 10; r++;
@@ -1889,32 +2177,123 @@
             }
         }
 
-        async function closePeriod() {
+        // ---------- Validasi, preview, tutup & buka kembali ----------
+        function tbPrevKey(desc) {
+            const s = desc.type === 'M' ? { t: 'M', y: desc.year, m: desc.month } : desc.type === 'Q' ? { t: 'Q', y: desc.year, q: desc.q } : desc.type === 'Y' ? { t: 'Y', y: desc.year } : { t: 'H', hy: desc.hy, cal: desc.cal };
+            return tbKey(tbPrevSel(s));
+        }
+        function tbValidate(cur) {
+            const acc = cur.acc, desc = cur.desc, d = cur.d, out = [], today = _today();
+            const add = (lvl, msg) => out.push({ lvl, msg });
+            if (cur.isClosed) add('err', 'Periode ini sudah berstatus DITUTUP.');
+            if (desc.start > today) add('err', 'Periode belum dimulai (mulai ' + dFmt(desc.start) + ').');
+            else if (desc.end >= today) add('warn', 'Periode belum berakhir (berakhir ' + dFmt(desc.end) + '). Transaksi setelah penutupan pada rentang ini tidak dapat ditambahkan.');
+            const neg = d.cash.filter(c => c.close < -0.5);
+            if (neg.length) add('warn', 'Saldo akhir minus pada: ' + neg.map(c => c.name + ' (' + formatRp(c.close) + ')').join(', ') + '. Periksa pencatatan.');
+            else add('ok', 'Tidak ada kas bersaldo minus (' + d.cash.length + ' kas diperiksa).');
+            const gap = Math.abs(d.totalOpen + d.totIn - d.totOut - d.totalClose);
+            if (gap > 0.5) add('warn', 'Saldo awal + pemasukan - pengeluaran tidak sama dengan saldo akhir (selisih ' + formatRp(gap) + '). Biasanya akibat transfer ke kas yang tidak terdaftar.');
+            else add('ok', 'Saldo awal + surplus = saldo akhir.');
+            const prev = state.closings.find(c => c.account === acc && c.period === tbPrevKey(desc) && c.status === 'closed' && c.snapshot && c.snapshot.cash);
+            if (prev) {
+                const pg = Math.abs(prev.snapshot.totalClose - d.totalOpen);
+                if (pg > 0.5) add('warn', 'Saldo awal tidak sama dengan saldo akhir periode sebelumnya yang sudah ditutup (selisih ' + formatRp(pg) + '). Ada perubahan data setelah penutupan?');
+                else add('ok', 'Saldo awal sama dengan saldo akhir periode sebelumnya (sudah ditutup).');
+            }
+            const o = state.optionsPerAccount[acc] || { in: { categories: [], cashTypes: [] }, out: { categories: [], cashTypes: [] } };
+            const cats = new Set([...(o.in.categories || []), ...(o.out.categories || [])]), cashes = new Set([...(o.in.cashTypes || []), ...(o.out.cashTypes || [])]);
+            const bad = state.transactions.filter(t => t.account === acc && dateInPeriod(t.date, desc) && (!t.category || !cats.has(t.category) || !t.cashType || !cashes.has(t.cashType)));
+            if (bad.length) add('warn', bad.length + ' transaksi belum terklasifikasi (kategori/kas kosong atau tidak ada di daftar opsi).');
+            else add('ok', 'Semua transaksi terklasifikasi.');
+            const w = invWalk(acc);
+            if (w.ledger.some(l => l.negative && dateInPeriod(l.m.date, desc))) add('warn', 'Ada stok bernilai minus pada periode ini.');
+            if (desc.type === 'Q' || desc.type === 'Y') {
+                let n = 0, tot = 0;
+                for (let m = 1; m <= 12; m++) { const md = periodDescFromKey(`${desc.year}-${_p2(m)}`); if (md.start >= desc.start && md.next <= desc.next) { tot++; const c = state.closings.find(x => x.account === acc && x.period === md.key && x.status === 'closed'); if (!c) n++; } }
+                add('info', 'Laporan ini membaca transaksi asli pada rentangnya. ' + (n ? n + ' dari ' + tot + ' bulan di dalamnya belum ditutup sendiri (tidak wajib; tiap periode independen).' : 'Seluruh bulan di dalamnya sudah ditutup.'));
+            }
+            if (desc.type === 'H') add('info', 'Batas periode mengikuti kalender Hijriah ' + HJ_CALS[desc.cal].label + ': ' + dFmt(desc.start) + ' s/d ' + dFmt(desc.end) + ' (' + desc.days + ' hari). Tidak memengaruhi periode Masehi.');
+            add('info', 'Tutup buku hanya membuat laporan dan mengunci tanggal; saldo kas dan transaksi tidak diubah.');
+            return out;
+        }
+
+        function tbEnsureModal() {
+            if (_g('tbPreviewModal')) return;
+            const el = document.createElement('div');
+            el.id = 'tbPreviewModal';
+            el.className = 'hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4';
+            document.body.appendChild(el);
+        }
+        function tbPreviewClose() {
             if (needSchema()) return;
-            const acc = state.currentAccount, period = _g('tbPeriod').value;
-            if (period > _ym(_today())) { alert('Periode ini belum dimulai.'); return; }
-            const d = computePeriod(acc, period);
-            let msg = `Tutup periode ${period} untuk ${acc}?\nSetelah ditutup, transaksi, transfer, aset, dan stok pada periode ini terkunci.`;
-            if (period === _ym(_today())) msg += '\n\nPERHATIAN: bulan ini belum berakhir.';
-            if (d.cash.some(c => c.close < 0)) msg += '\n\nPERHATIAN: ada kas dengan saldo akhir minus. Periksa pencatatan terlebih dahulu.';
-            if (!confirm(msg)) return;
-            const note = (_g('tbNote') ? _g('tbNote').value : '').trim();
-            const { data, error } = await _supabase.from('period_closings')
-                .upsert([{ account: acc, period, status: 'closed', snapshot: d, note, closed_at: new Date().toISOString() }], { onConflict: 'account,period' }).select();
-            if (error || !data || !data.length) { alert('Gagal menutup periode: ' + (error ? error.message : 'tidak ada respons')); return; }
-            state.closings = state.closings.filter(c => !(c.account === acc && c.period === period));
-            state.closings.push({ id: data[0].id, account: acc, period, status: 'closed', snapshot: d, note, closedAt: data[0].closed_at });
-            renderTutupPage();
+            tbInit(); tbEnsureModal();
+            const cur = tbCurrent(), v = tbValidate(cur), d = cur.d;
+            const hasErr = v.some(x => x.lvl === 'err'), hasWarn = v.some(x => x.lvl === 'warn');
+            TB.pv = { key: cur.key };
+            const ic = { err: ['fa-circle-xmark', 'text-red-600'], warn: ['fa-triangle-exclamation', 'text-amber-600'], ok: ['fa-circle-check', 'text-green-600'], info: ['fa-circle-info', 'text-blue-600'] };
+            const ln = (a, b, c) => `<div class="flex justify-between text-xs"><span>${a}</span><span class="font-bold ${c || ''}">${b}</span></div>`;
+            _g('tbPreviewModal').innerHTML = `<div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto p-5 space-y-3">
+                <div class="flex justify-between items-center"><h3 class="font-bold text-sm text-bri-blue dark:text-blue-400"><i class="fa-solid fa-lock mr-1"></i> Preview Tutup Buku</h3><button onclick="closeModal('tbPreviewModal')" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>
+                <div><div class="font-extrabold text-sm">${esc(cur.desc.name)} - ${esc(cur.acc)}</div><div class="text-[11px] text-gray-500">${esc(cur.desc.typeLabel)} &bull; ${dFmt(cur.desc.start)} s/d ${dFmt(cur.desc.end)} &bull; ${cur.desc.days} hari</div></div>
+                <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 space-y-1">${ln('Saldo awal', formatRp(d.totalOpen))}${ln('Pemasukan', formatRp(d.totIn), 'text-green-600')}${ln('Pengeluaran', formatRp(d.totOut), 'text-red-500')}${ln(d.net >= 0 ? 'Surplus' : 'Defisit', formatRp(Math.abs(d.net)), d.net >= 0 ? 'text-green-600' : 'text-red-500')}${ln('Saldo akhir', formatRp(d.totalClose), 'text-bri-blue')}${ln('Jumlah transaksi', d.txCount != null ? d.txCount : '-')}</div>
+                <div class="space-y-1.5">${v.map(x => `<div class="flex gap-2 text-[11px]"><i class="fa-solid ${ic[x.lvl][0]} ${ic[x.lvl][1]} mt-0.5"></i><span>${esc(x.msg)}</span></div>`).join('')}</div>
+                <textarea id="tbNote" rows="2" placeholder="Catatan penutupan (opsional)" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none text-xs"></textarea>
+                ${hasWarn && !hasErr ? '<label class="flex gap-2 items-start text-[11px] text-amber-700 dark:text-amber-300"><input type="checkbox" id="tbAck" onchange="_g(\'tbOk\').disabled=!this.checked" class="mt-0.5"><span>Saya sudah memeriksa peringatan di atas dan tetap ingin menutup periode ini.</span></label>' : ''}
+                <div class="flex gap-2"><button onclick="closeModal('tbPreviewModal')" class="flex-1 py-3 bg-gray-200 dark:bg-gray-700 font-bold rounded-xl text-xs">Batal</button>
+                <button id="tbOk" onclick="tbConfirmClose()" ${hasErr || hasWarn ? 'disabled' : ''} class="flex-1 py-3 bg-purple-700 text-white font-bold rounded-xl text-xs disabled:opacity-40"><i class="fa-solid fa-lock"></i> Konfirmasi Tutup Buku</button></div></div>`;
+            openModal('tbPreviewModal');
+        }
+
+        // Penutupan = satu operasi tulis ke satu baris (atomik). Baris baru memakai INSERT (kunci unik akun+periode menolak
+        // penutupan ganda); baris yang pernah dibuka kembali memakai UPDATE bersyarat status='open'.
+        async function tbConfirmClose() {
+            if (needSchema() || !TB.pv || TB.busy) return;
+            TB.busy = true;
+            const btn = _g('tbOk'); if (btn) btn.disabled = true;
+            try {
+                const acc = state.currentAccount, key = TB.pv.key, desc = periodDescFromKey(key);
+                const note = (_g('tbNote') ? _g('tbNote').value : '').trim();
+                const live = computePeriod(acc, key), cur0 = { acc, key, desc, closing: null, isClosed: false, d: live };
+                if (tbValidate(cur0).some(x => x.lvl === 'err')) { alert('Periode tidak dapat ditutup. Periksa peringatan.'); return; }
+                const ex = await _supabase.from('period_closings').select('*').eq('account', acc).eq('period', key);
+                if (ex.error) throw new Error(ex.error.message);
+                const row = (ex.data || [])[0];
+                if (row && row.status === 'closed') { alert('Periode ini sudah ditutup (kemungkinan oleh admin lain). Data disinkronkan ulang.'); closeModal('tbPreviewModal'); await syncNow(true); return; }
+                let oldSn = row && row.snapshot; if (typeof oldSn === 'string') { try { oldSn = JSON.parse(oldSn); } catch (e) { oldSn = null; } }
+                const at = new Date().toISOString();
+                const snapshot = Object.assign({}, live, { periodType: desc.type, periodName: desc.name, startDate: desc.start, endDate: desc.end, days: desc.days, closedBy: 'Admin', closedAt: at,
+                    hijriMethod: desc.type === 'H' ? desc.cal : null, audit: [...((oldSn && oldSn.audit) || []), { a: 'CLOSE', at, by: 'Admin', note }] });
+                let res;
+                if (row) res = await _supabase.from('period_closings').update({ status: 'closed', snapshot, note, closed_at: at }).eq('id', row.id).eq('status', 'open').select();
+                else res = await _supabase.from('period_closings').insert([{ account: acc, period: key, status: 'closed', snapshot, note, closed_at: at }]).select();
+                if (res.error) {
+                    const dup = res.error.code === '23505' || /duplicate|unique/i.test(res.error.message);
+                    if (dup) { alert('Periode ini baru saja ditutup oleh admin lain. Data disinkronkan ulang.'); closeModal('tbPreviewModal'); await syncNow(true); return; }
+                    throw new Error(res.error.message + (/check|violat|length|value too long|invalid input/i.test(res.error.message) ? '\n\nTabel period_closings masih membatasi format kolom "period". Jalankan skrip migrasi_periode_multi.sql di Supabase (SQL Editor), lalu coba lagi.' : ''));
+                }
+                if (!res.data || !res.data.length) { alert('Periode ini sudah diubah oleh admin lain. Data disinkronkan ulang.'); closeModal('tbPreviewModal'); await syncNow(true); return; }
+                state.closings = state.closings.filter(c => !(c.account === acc && c.period === key));
+                state.closings.push({ id: res.data[0].id, account: acc, period: key, status: 'closed', snapshot, note, closedAt: at });
+                closeModal('tbPreviewModal');
+                renderTutupPage();
+            } catch (err) { alert('Gagal menutup periode: ' + (err && err.message ? err.message : err)); }
+            finally { TB.busy = false; }
         }
 
         async function reopenPeriod() {
             if (needSchema()) return;
-            const acc = state.currentAccount, period = _g('tbPeriod').value;
-            const c = state.closings.find(x => x.account === acc && x.period === period); if (!c) return;
-            if (!confirm(`Buka kembali periode ${period}? Data pada periode ini dapat diubah lagi, lalu tutup ulang setelah selesai.`)) return;
-            const { error } = await _supabase.from('period_closings').update({ status: 'open' }).eq('id', c.id);
-            if (error) { alert('Gagal membuka periode: ' + error.message); return; }
-            c.status = 'open';
+            tbInit();
+            const cur = tbCurrent(), c = cur.closing; if (!c || c.status !== 'closed') return;
+            const reason = (prompt(`Buka kembali ${cur.desc.name}?\nTanggal pada periode ini dapat diubah lagi. Tulis alasan koreksi (wajib, tercatat di jejak audit):`) || '').trim();
+            if (!reason) { alert('Alasan wajib diisi. Periode tidak dibuka.'); return; }
+            const at = new Date().toISOString();
+            const snapshot = Object.assign({}, c.snapshot, { audit: [...((c.snapshot && c.snapshot.audit) || []), { a: 'REOPEN', at, by: 'Admin', note: reason }] });
+            const res = await _supabase.from('period_closings').update({ status: 'open', snapshot }).eq('id', c.id).eq('status', 'closed').select();
+            if (res.error) { alert('Gagal membuka periode: ' + res.error.message); return; }
+            if (!res.data || !res.data.length) { alert('Status periode sudah berubah (oleh admin lain). Data disinkronkan ulang.'); await syncNow(true); return; }
+            c.status = 'open'; c.snapshot = snapshot;
+            const still = state.closings.filter(x => x.account === cur.acc && x.status === 'closed' && x.period !== c.period).map(x => periodDescFromKey(x.period)).filter(d => d && d.start < cur.desc.next && cur.desc.start < d.next);
+            if (still.length) alert('Catatan: sebagian tanggal tetap terkunci karena periode berikut masih ditutup: ' + still.map(d => d.name).join(', ') + '.');
             renderTutupPage();
         }
 
