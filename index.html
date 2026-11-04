@@ -897,6 +897,31 @@
             </div>
         </div>
 
+        <div id="editTxModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-bri-blue dark:text-blue-400 flex items-center gap-1.5"><i class="fa-solid fa-pen-to-square"></i> <span id="editTxTitle">Edit Jenis & Kas</span></h3>
+                    <button onclick="closeModal('editTxModal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="editTxInfo" class="text-xs bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 space-y-0.5"></div>
+                <div class="text-xs space-y-3">
+                    <div>
+                        <label class="block font-semibold mb-1.5 text-gray-500">JENIS</label>
+                        <div id="editTxCats" class="flex flex-wrap gap-2"></div>
+                        <p id="editTxLockNote" class="hidden mt-1.5 text-[10px] text-amber-600">Jenis dikunci karena transaksi ini berasal dari menu Stok/HPP. Kas tetap bisa diubah.</p>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1.5 text-gray-500">KAS</label>
+                        <div id="editTxCashes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="closeModal('editTxModal')" class="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl text-xs">Batal</button>
+                    <button id="editTxSaveBtn" onclick="saveEditTransaction()" class="flex-1 py-2.5 bg-bri-blue text-white font-bold rounded-xl text-xs shadow-md transition transform active:scale-95">Simpan Perubahan</button>
+                </div>
+            </div>
+        </div>
+
         <div id="addAccountModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-xl p-5 space-y-4">
                 <div class="flex justify-between items-center">
@@ -3445,6 +3470,63 @@
             refreshCurrentPage();
         }
 
+        // ---------- Edit jenis & kas transaksi (pemasukan / pengeluaran) ----------
+        let editingTxId = null;
+
+        function _editChoiceHtml(name, values, selected, disabled) {
+            return values.map((v, i) => `
+                <label class="${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}">
+                    <input type="radio" name="${name}" value="${esc(v)}" class="peer hidden" ${v === selected ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                    <span class="inline-block px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 font-semibold transition peer-checked:bg-bri-blue peer-checked:text-white peer-checked:border-bri-blue">${esc(v)}</span>
+                </label>`).join('');
+        }
+
+        function openEditTransaction(id) {
+            const t = state.transactions.find(x => x.id === id);
+            if (!t) return;
+            if (guardClosed(t.date)) return;
+            const opt = getCurrentAccountOptions()[t.type === 'in' ? 'in' : 'out'];
+            const locked = state.inventoryMoves.some(m => m.transactionId === id);
+            const cats = opt.categories.slice();
+            const cashes = opt.cashTypes.slice();
+            if (t.category && !cats.includes(t.category)) cats.unshift(t.category);
+            if (t.cashType && !cashes.includes(t.cashType)) cashes.unshift(t.cashType);
+            editingTxId = id;
+            document.getElementById('editTxTitle').innerText = t.type === 'in' ? 'Edit Jenis & Kas Pemasukan' : 'Edit Jenis & Kas Pengeluaran';
+            document.getElementById('editTxInfo').innerHTML = `
+                <div class="text-gray-400">${esc(getDayName(t.date))}, ${esc(t.date)}</div>
+                <div class="font-bold text-sm">${esc(t.desc)}</div>
+                <div class="font-semibold ${t.type === 'in' ? 'text-green-600' : 'text-red-600'}">${formatRp(t.qty * t.amount)}</div>`;
+            document.getElementById('editTxCats').innerHTML = _editChoiceHtml('editTxCat', cats, t.category, locked);
+            document.getElementById('editTxCashes').innerHTML = _editChoiceHtml('editTxCash', cashes, t.cashType, false);
+            document.getElementById('editTxLockNote').classList.toggle('hidden', !locked);
+            openModal('editTxModal');
+        }
+
+        async function saveEditTransaction() {
+            const t = state.transactions.find(x => x.id === editingTxId);
+            if (!t) { closeModal('editTxModal'); return; }
+            if (guardClosed(t.date)) return;
+            const catEl = document.querySelector('input[name="editTxCat"]:checked');
+            const cashEl = document.querySelector('input[name="editTxCash"]:checked');
+            if (!catEl || !cashEl) { alert('Pilih jenis dan kas terlebih dahulu.'); return; }
+            const category = catEl.value, cashType = cashEl.value;
+            if (category === t.category && cashType === t.cashType) { closeModal('editTxModal'); return; }
+            if (!_supabase) { alert('Koneksi database belum siap!'); return; }
+            const btn = document.getElementById('editTxSaveBtn');
+            btn.disabled = true;
+            const { error } = await _supabase.from('transactions')
+                .update({ category: category, cash_type: cashType }).eq('id', t.id);
+            btn.disabled = false;
+            if (error) { alert('Gagal menyimpan perubahan: ' + error.message); return; }
+            t.category = category;
+            t.cashType = cashType;
+            closeModal('editTxModal');
+            // Semua laman (beranda, tabungan/kas, makro, mikro, laporan, tutup buku) membaca state.transactions,
+            // jadi cukup render ulang; perangkat lain ikut lewat Realtime/sinkron berkala.
+            refreshCurrentPage();
+        }
+
         function renderPemasukanTable() {
             const filterType = document.getElementById('filterInType').value;
             let list = state.transactions.filter(t => t.account === state.currentAccount && t.type === 'in');
@@ -3473,7 +3555,10 @@
                         <td class="p-3 text-right">${formatRp(t.amount)}</td>
                         <td class="p-3 text-right font-extrabold text-green-600 dark:text-green-400">${formatRp(total)}</td>
                         <td class="p-3 text-center">
-                            <button onclick="deleteTransaction(${t.id})" class="text-red-400 hover:text-red-600 transition transform active:scale-90"><i class="fa-solid fa-trash"></i></button>
+                            <div class="flex items-center justify-center gap-3">
+                                <button onclick="openEditTransaction(${t.id})" title="Edit jenis & kas" class="text-blue-400 hover:text-blue-600 transition transform active:scale-90"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button onclick="deleteTransaction(${t.id})" title="Hapus" class="text-red-400 hover:text-red-600 transition transform active:scale-90"><i class="fa-solid fa-trash"></i></button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -3508,7 +3593,10 @@
                         <td class="p-3 text-right">${formatRp(t.amount)}</td>
                         <td class="p-3 text-right font-extrabold text-red-600 dark:text-red-400">${formatRp(total)}</td>
                         <td class="p-3 text-center">
-                            <button onclick="deleteTransaction(${t.id})" class="text-red-400 hover:text-red-600 transition transform active:scale-90"><i class="fa-solid fa-trash"></i></button>
+                            <div class="flex items-center justify-center gap-3">
+                                <button onclick="openEditTransaction(${t.id})" title="Edit jenis & kas" class="text-blue-400 hover:text-blue-600 transition transform active:scale-90"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button onclick="deleteTransaction(${t.id})" title="Hapus" class="text-red-400 hover:text-red-600 transition transform active:scale-90"><i class="fa-solid fa-trash"></i></button>
+                            </div>
                         </td>
                     </tr>
                 `;
