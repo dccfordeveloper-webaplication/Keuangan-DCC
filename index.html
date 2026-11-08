@@ -3525,9 +3525,11 @@
             try {
                 if (typeof window.Chart !== 'function') throw new Error('library grafik belum termuat');
                 if (!cv.offsetParent) return null; // halaman sedang tersembunyi, dibuat ulang saat dibuka
+                Chart.defaults.animation = false;
                 const ex = Chart.getChart(cv); if (ex) ex.destroy();
                 const c = new Chart(cv.getContext('2d'), config);
                 _chartRetry = 0;
+                setTimeout(chartHealthCheck, 700);
                 return c;
             } catch (e) {
                 console.error('[Grafik] ' + id, e);
@@ -3536,6 +3538,42 @@
                 return null;
             }
         }
+
+        // Pemeriksa kesehatan grafik: deteksi kanvas kosong / tanpa grafik, lalu gambar ulang otomatis
+        const _blankCount = {};
+        let _lastRebuild = 0;
+        function chartHealthCheck() {
+            if (typeof window.Chart !== 'function' || document.hidden) return;
+            let rebuild = false;
+            document.querySelectorAll('canvas').forEach(cv => {
+                if (!cv.offsetParent || !cv.id) return;
+                const ch = Chart.getChart(cv);
+                if (!ch) { rebuild = true; return; }                       // kanvas terlihat tetapi grafiknya tidak ada
+                if (cv.width < 10 || cv.height < 10) { ch.resize(); return; } // ukuran nol
+                const isBlank = () => {
+                    try {
+                        const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+                        for (let i = 3; i < d.length; i += 4 * 53) { if (d[i] !== 0) return false; }
+                        return true;
+                    } catch (e) { return false; }
+                };
+                if (!isBlank()) { _blankCount[cv.id] = 0; return; }
+                try { ch.resize(); ch.update('none'); } catch (e) {}          // coba gambar ulang dulu
+                if (!isBlank()) { _blankCount[cv.id] = 0; return; }            // pulih
+                _blankCount[cv.id] = (_blankCount[cv.id] || 0) + 1;
+                if (_blankCount[cv.id] >= 2) rebuild = true;                  // masih kosong dua kali: bangun ulang
+            });
+            if (rebuild && Date.now() - _lastRebuild > 2500) {
+                _lastRebuild = Date.now();
+                Object.keys(_blankCount).forEach(k => { _blankCount[k] = 0; });
+                console.warn('[Grafik] kanvas kosong terdeteksi, menggambar ulang');
+                refreshCurrentPage();
+            }
+        }
+        setInterval(chartHealthCheck, 3000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) { setTimeout(chartHealthCheck, 150); setTimeout(chartHealthCheck, 900); } });
+        window.addEventListener('focus', () => setTimeout(chartHealthCheck, 200));
+        window.addEventListener('pageshow', () => setTimeout(chartHealthCheck, 200));
 
         let salesChartInstance = null, saView = 'date';
         const SA_VIEWS = { date: 'Per Tanggal', dow: 'Per Hari', hour: 'Per Jam', item: 'Barang Terlaris', cat: 'Per Jenis' };
