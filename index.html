@@ -6,12 +6,6 @@
     <title>Bendahara - DCC 2.0</title>
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="icon2_biru.png">
-    <!-- Ikon Home Screen iPhone/iPad -->
-    <link rel="apple-touch-icon" href="icon2_biru.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="icon2_biru.png">
-    <meta name="apple-mobile-web-app-title" content="Bendahara DCC">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -68,8 +62,8 @@
         <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 md:p-8 relative overflow-hidden">
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-xl"></div>
             <div class="text-center mb-8 relative z-10">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-white dark:bg-white rounded-2xl mb-3 shadow-md overflow-hidden animate-bounce">
-                    <img src="icon2_biru.png" alt="Logo DCC" class="w-full h-full object-contain p-1">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-2xl mb-3 text-bri-blue dark:text-blue-400 shadow-inner animate-bounce">
+                    <i class="fa-solid fa-user-tie text-3xl"></i>
                 </div>
                 <h2 class="text-2xl font-extrabold text-gray-900 dark:text-white">Bendahara DCC</h2>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Masukkan Password Akses Keuangan Sektor</p>
@@ -101,8 +95,8 @@
         <header class="bg-bri-gradient text-white p-4 sticky top-0 z-30 rounded-b-2xl shadow-md">
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-white/30 shadow overflow-hidden">
-                        <img src="icon2_biru.png" alt="Logo DCC" class="w-full h-full object-contain p-1">
+                    <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-lg border border-white/30 text-amber-300 shadow">
+                        <i class="fa-solid fa-user-shield text-base"></i>
                     </div>
                     <div>
                         <div class="flex items-center space-x-1.5">
@@ -286,6 +280,7 @@
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">NOMINAL SATUAN (RP)</label>
                             <input type="number" id="inAmount" placeholder="0" required min="1" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-bold">
                         </div>
+                        <div class="md:col-span-2"><label class="block text-[11px] font-semibold text-gray-500 mb-1">NAMA PENERIMA (OPSIONAL)</label><input type="text" id="inRecipient" placeholder="Misal: Pak Ahmad / CV Maju Jaya" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div>
                         <div class="md:col-span-2">
                             <button type="submit" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl shadow transition transform active:scale-95">Simpan Pemasukan</button>
                         </div>
@@ -358,6 +353,7 @@
                             <label class="block text-[11px] font-semibold text-gray-500 mb-1">NOMINAL SATUAN (RP)</label>
                             <input type="number" id="outAmount" placeholder="0" required min="1" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none font-bold">
                         </div>
+                        <div class="md:col-span-2"><label class="block text-[11px] font-semibold text-gray-500 mb-1">NAMA PENERIMA (OPSIONAL)</label><input type="text" id="outRecipient" placeholder="Misal: Pak Ahmad / CV Maju Jaya" class="w-full p-2.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"></div>
                         <div class="md:col-span-2">
                             <button type="submit" class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow transition transform active:scale-95">Simpan Pengeluaran</button>
                         </div>
@@ -610,6 +606,20 @@
                         <canvas id="financialChart" class="w-full h-64"></canvas>
                     </div>
 
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
+                        <h4 class="text-xs font-bold mb-2"><i class="fa-solid fa-chart-column text-bri-blue"></i> Pemasukan vs Pengeluaran Harian</h4>
+                        <canvas id="dailyBarChart" class="w-full h-64"></canvas>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <h4 class="text-xs font-bold"><i class="fa-solid fa-calendar-day text-bri-orange"></i> Perbandingan pada Tanggal Terpilih</h4>
+                            <input type="date" id="chartDate" onchange="renderDayCompare()" class="p-1.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none font-bold">
+                        </div>
+                        <canvas id="dayCompareChart" class="w-full h-52"></canvas>
+                        <div id="dayCompareText" class="text-[11px] text-center text-gray-500 mt-2"></div>
+                    </div>
+
                     <div class="grid grid-cols-3 gap-2">
                         <div class="bg-blue-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
                             <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">OMZET KOTOR</span>
@@ -737,6 +747,14 @@
                 <div id="tbContent" class="space-y-4"></div>
             </section>
 
+            <section id="page-danaku" class="page-section hidden space-y-4">
+                <div class="flex justify-between items-start gap-2">
+                    <div><h2 class="text-lg font-bold">Danaku</h2><p class="text-xs text-gray-500 dark:text-gray-400">Catat pengeluaran kepanitiaan atau agenda. Uang diambil dari kas yang dipilih dan otomatis masuk ke Pengeluaran.</p></div>
+                    <button onclick="dkFundForm()" class="px-3 py-2 bg-bri-blue text-white rounded-xl text-xs font-bold shadow-md"><i class="fa-solid fa-plus"></i> Danaku</button>
+                </div>
+                <div id="dkList" class="space-y-3"></div>
+            </section>
+
             <section id="page-laporan" class="page-section hidden space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -805,6 +823,7 @@
                 <button onclick="navigateTo('aset')" id="nav-aset" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-boxes-packing text-xs"></i><span class="text-[8px] font-bold mt-0.5">Aset</span></button>
                 <button onclick="navigateTo('stok')" id="nav-stok" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-boxes-stacked text-xs"></i><span class="text-[8px] font-bold mt-0.5">Stok</span></button>
                 <button onclick="navigateTo('tutup')" id="nav-tutup" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-lock text-xs"></i><span class="text-[8px] font-bold mt-0.5">Tutup</span></button>
+                <button onclick="navigateTo('danaku')" id="nav-danaku" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-hand-holding-dollar text-xs"></i><span class="text-[8px] font-bold mt-0.5">Danaku</span></button>
                 <button onclick="navigateTo('laporan')" id="nav-laporan" class="nav-btn flex flex-col items-center p-1 text-gray-400 hover:text-bri-blue transition transform active:scale-90"><i class="fa-solid fa-file-lines text-xs"></i><span class="text-[8px] font-bold mt-0.5">Laporan</span></button>
             </div>
         </nav>
@@ -849,6 +868,8 @@
                 </form>
             </div>
         </div>
+
+        <div id="dkHost"></div>
 
         <div id="transferModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-4">
@@ -1017,7 +1038,7 @@
             transactions: [],
             transfers: [],
             assets: [],
-            hppPlans: [], inventoryItems: [], inventoryMoves: [], closings: [], schemaMissing: false,
+            hppPlans: [], inventoryItems: [], inventoryMoves: [], closings: [], schemaMissing: false, danakuFunds: [], danakuExpenses: [], danakuMissing: false,
             optionsPerAccount: {},
             microFilters: {},
             isBalanceHidden: false
@@ -1137,7 +1158,8 @@
 
                 state.transactions = (txR.data || []).map(t => ({
                     id: t.id, account: t.account, type: t.type, date: t.date, desc: t.description,
-                    qty: t.qty, category: t.category, cashType: t.cash_type, amount: Number(t.amount)
+                    qty: t.qty, category: t.category, cashType: t.cash_type, amount: Number(t.amount),
+                    recipient: t.recipient || '', createdAt: t.created_at
                 }));
                 state.transfers = (trR.data || []).map(tr => ({
                     id: tr.id, account: tr.account, date: tr.date, fromCash: tr.from_cash,
@@ -1170,6 +1192,14 @@
                     let sn = c.snapshot; if (typeof sn === 'string') { try { sn = JSON.parse(sn); } catch (e) { sn = {}; } }
                     return { id: c.id, account: c.account, period: c.period, status: c.status, snapshot: sn || {}, note: c.note || '', closedAt: c.closed_at };
                 });
+
+                const dkR = await Promise.all([
+                    _supabase.from('danaku_funds').select('*').order('id', { ascending: true }),
+                    _supabase.from('danaku_expenses').select('*').order('id', { ascending: true })
+                ]);
+                state.danakuMissing = dkR.some(r => r.error);
+                state.danakuFunds = dkR[0].error ? [] : (dkR[0].data || []).map(dkMapFund);
+                state.danakuExpenses = dkR[1].error ? [] : (dkR[1].data || []).map(e => ({ id: e.id, fundId: e.fund_id, account: e.account, date: e.date, desc: e.description, amount: Number(e.amount), recipient: e.recipient || '', transactionId: e.transaction_id || null, createdAt: e.created_at }));
 
                 const accRows = accR.data || [];
                 const dbNames = accRows.map(a => a.name);
@@ -1208,7 +1238,7 @@
 
         function stateSignature() {
             return JSON.stringify([state.accounts, state.optionsPerAccount, state.transactions,
-                state.transfers, state.assets, state.hppPlans, state.inventoryItems, state.inventoryMoves, state.closings]);
+                state.transfers, state.assets, state.hppPlans, state.inventoryItems, state.inventoryMoves, state.closings, state.danakuFunds, state.danakuExpenses]);
         }
 
         // Render ulang setelah data berubah dari perangkat lain, tanpa mereset pilihan dropdown yang sedang dipakai
@@ -2444,6 +2474,7 @@
             if (currentPage === 'laporan') renderReportTable();
             if (currentPage === 'stok') renderStokPage();
             if (currentPage === 'tutup') renderTutupPage();
+            if (currentPage === 'danaku') renderDanakuPage();
         }
 
         function renderAccountSelector() {
@@ -3425,6 +3456,7 @@
             const category = document.getElementById(`${prefix}Category`).value;
             const cashType = document.getElementById(`${prefix}CashType`).value;
             const amount = parseFloat(document.getElementById(`${prefix}Amount`).value);
+            const recipient = ((document.getElementById(`${prefix}Recipient`) || {}).value || '').trim();
             if (guardClosed(date)) return;
 
             if (!_supabase) {
@@ -3440,11 +3472,12 @@
                 qty: qty,
                 category: category,
                 cash_type: cashType,
-                amount: amount
+                amount: amount,
+                ...(recipient ? { recipient } : {})
             }]).select();
 
             if (error) {
-                alert("Gagal menyimpan ke database: " + error.message);
+                alert("Gagal menyimpan ke database: " + error.message + (/recipient/.test(error.message) ? "\n\nJalankan migrasi_danaku_penerima.sql di Supabase terlebih dahulu." : ""));
                 return;
             }
 
@@ -3452,19 +3485,219 @@
                 state.transactions.push({
                     id: data[0].id,
                     account: state.currentAccount,
-                    type, date, desc, qty, category, cashType, amount
+                    type, date, desc, qty, category, cashType, amount, recipient, createdAt: data[0].created_at
                 });
             }
 
             document.getElementById(`${prefix}Desc`).value = '';
             document.getElementById(`${prefix}Amount`).value = '';
+            if (document.getElementById(`${prefix}Recipient`)) document.getElementById(`${prefix}Recipient`).value = '';
             refreshCurrentPage();
+        }
+
+        // ==========================================
+        // JAM TRANSAKSI
+        // ==========================================
+        function txTime(t) {
+            if (!t.createdAt) return '--:--:--';
+            const d = new Date(t.createdAt), p = n => String(n).padStart(2, '0');
+            return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        }
+
+        // ==========================================
+        // GRAFIK BAR HARIAN & PERBANDINGAN TANGGAL (Makro)
+        // ==========================================
+        let barChartInstance = null, dayChartInstance = null;
+        function renderBarCharts() {
+            const cv = document.getElementById('dailyBarChart'); if (!cv) return;
+            const days = parseInt(document.getElementById('chartPeriod').value);
+            const tx = state.transactions.filter(t => t.account === state.currentAccount);
+            const monthly = days > 31, buckets = new Map();
+            for (let i = days - 1; i >= 0; i--) { const d = getFormattedDate(-i), k = monthly ? d.slice(0, 7) : d; if (!buckets.has(k)) buckets.set(k, { in: 0, out: 0 }); }
+            tx.forEach(t => { const b = buckets.get(monthly ? t.date.slice(0, 7) : t.date); if (!b) return; if (t.type === 'in') b.in += t.qty * t.amount; else b.out += t.qty * t.amount; });
+            const keys = [...buckets.keys()];
+            if (barChartInstance) barChartInstance.destroy();
+            barChartInstance = new Chart(cv.getContext('2d'), {
+                type: 'bar',
+                data: { labels: keys.map(k => monthly ? k : k.slice(5)), datasets: [
+                    { label: monthly ? 'Pemasukan (per bulan)' : 'Pemasukan Harian', data: keys.map(k => buckets.get(k).in), backgroundColor: '#10B981', borderRadius: 4 },
+                    { label: monthly ? 'Pengeluaran (per bulan)' : 'Pengeluaran Harian', data: keys.map(k => buckets.get(k).out), backgroundColor: '#EF4444', borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
+                    scales: { x: { ticks: { font: { size: 9 } } }, y: { beginAtZero: true, ticks: { font: { size: 9 } } } } }
+            });
+        }
+        function renderDayCompare() {
+            const cv = document.getElementById('dayCompareChart'); if (!cv) return;
+            const inp = document.getElementById('chartDate'); if (!inp.value) inp.value = getFormattedDate(0);
+            const d = inp.value;
+            const tx = state.transactions.filter(t => t.account === state.currentAccount && t.date === d);
+            const sum = ty => tx.filter(t => t.type === ty).reduce((a, t) => a + t.qty * t.amount, 0);
+            const inn = sum('in'), out = sum('out'), nIn = tx.filter(t => t.type === 'in').length, nOut = tx.length - nIn;
+            if (dayChartInstance) dayChartInstance.destroy();
+            dayChartInstance = new Chart(cv.getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['Pemasukan', 'Pengeluaran', 'Selisih'], datasets: [{ data: [inn, out, inn - out], backgroundColor: ['#10B981', '#EF4444', inn - out >= 0 ? '#00529C' : '#F59E0B'], borderRadius: 6 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 10 } } } } }
+            });
+            document.getElementById('dayCompareText').innerHTML = tx.length
+                ? `${esc(getDayName(d))}, ${d}: pemasukan <b class="text-green-600">${formatRp(inn)}</b> (${nIn} transaksi), pengeluaran <b class="text-red-600">${formatRp(out)}</b> (${nOut} transaksi), selisih <b>${formatRp(inn - out)}</b>`
+                : `Tidak ada transaksi pada ${esc(getDayName(d))}, ${d}.`;
+        }
+
+        // ==========================================
+        // DANAKU (dana kepanitiaan / agenda)
+        // ==========================================
+        function dkMapFund(f) { return { id: f.id, account: f.account, name: f.name, budget: Number(f.budget || 0), sourceCash: f.source_cash, note: f.note || '', status: f.status || 'active' }; }
+        const dkV = id => document.getElementById(id).value;
+        function dkWarn() { return '<div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs"><b>Tabel Danaku belum dibuat.</b> Jalankan <code>migrasi_danaku_penerima.sql</code> di Supabase (SQL Editor), lalu muat ulang aplikasi.</div>'; }
+        function dkModal(html) { document.getElementById('dkHost').innerHTML = `<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"><div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-3 my-auto text-xs">${html}</div></div>`; }
+        function dkClose() { document.getElementById('dkHost').innerHTML = ''; }
+        function dkSpent(id) { return state.danakuExpenses.filter(e => e.fundId === id).reduce((a, e) => a + e.amount, 0); }
+        function dkKasSaldo(acc, name) {
+            let s = 0;
+            state.transactions.forEach(t => { if (t.account === acc && t.cashType === name) s += (t.type === 'in' ? 1 : -1) * t.qty * t.amount; });
+            state.transfers.forEach(t => { if (t.account !== acc) return; if (t.toCash === name) s += t.amount; if (t.fromCash === name) s -= t.amount; });
+            return s;
+        }
+        const DK_IN = 'class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"';
+        const DK_LB = 'class="block font-semibold text-gray-500 mb-1 uppercase text-[10px]"';
+        const DK_HEAD = (t) => `<div class="flex justify-between items-center"><h3 class="font-bold text-sm text-bri-blue dark:text-blue-400">${t}</h3><button onclick="dkClose()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>`;
+
+        function renderDanakuPage() {
+            const box = document.getElementById('dkList'); if (!box) return;
+            if (state.danakuMissing) { box.innerHTML = dkWarn(); return; }
+            const fs = state.danakuFunds.filter(f => f.account === state.currentAccount)
+                .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || b.id - a.id);
+            box.innerHTML = fs.map(f => {
+                const sp = dkSpent(f.id), sisa = f.budget - sp, over = f.budget > 0 && sp > f.budget, pct = f.budget > 0 ? Math.min(100, sp / f.budget * 100) : 0;
+                const n = state.danakuExpenses.filter(e => e.fundId === f.id).length, act = f.status === 'active';
+                return `<div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-2.5 ${act ? '' : 'opacity-75'}">
+                    <div class="flex justify-between items-start gap-2"><div><div class="font-extrabold text-sm">${esc(f.name)}</div>
+                        <div class="text-[11px] text-gray-500">Kas sumber: <b>${esc(f.sourceCash)}</b>${f.note ? ' &bull; ' + esc(f.note) : ''}</div></div>
+                        <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold ${act ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">${act ? 'Aktif' : 'Selesai'}</span></div>
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div class="p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50"><div class="text-[10px] text-gray-400 font-semibold">PAGU</div><div class="font-bold">${f.budget > 0 ? formatRp(f.budget) : 'Tanpa pagu'}</div></div>
+                        <div class="p-2 rounded-xl bg-red-50 dark:bg-red-900/20"><div class="text-[10px] text-gray-400 font-semibold">TERPAKAI (${n})</div><div class="font-bold text-red-600">${formatRp(sp)}</div></div>
+                        <div class="p-2 rounded-xl ${over ? 'bg-red-100' : 'bg-green-50 dark:bg-green-900/20'}"><div class="text-[10px] text-gray-400 font-semibold">SISA</div><div class="font-bold ${over ? 'text-red-600' : 'text-green-600'}">${f.budget > 0 ? formatRp(sisa) : '-'}</div></div></div>
+                    ${f.budget > 0 ? `<div class="h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden"><div class="h-full ${over ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-green-500'}" style="width:${pct}%"></div></div>` : ''}
+                    <div class="flex flex-wrap gap-2 text-[11px] font-bold">
+                        ${act ? `<button onclick="dkExpForm(${f.id})" class="px-3 py-2 bg-bri-orange text-white rounded-xl"><i class="fa-solid fa-plus"></i> Pengeluaran</button>` : ''}
+                        <button onclick="dkDetail(${f.id})" class="px-3 py-2 bg-blue-50 text-blue-700 rounded-xl">Rincian</button>
+                        <button onclick="dkToggle(${f.id})" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl">${act ? 'Selesaikan' : 'Aktifkan lagi'}</button>
+                        <button onclick="dkDelFund(${f.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl"><i class="fa-solid fa-trash"></i></button></div></div>`;
+            }).join('') || '<div class="text-center text-gray-400 text-xs py-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">Belum ada Danaku. Tekan <b>+ Danaku</b> untuk membuat dana kepanitiaan atau agenda.</div>';
+        }
+
+        function dkFundForm() {
+            if (state.danakuMissing) { alert('Jalankan migrasi_danaku_penerima.sql di Supabase terlebih dahulu.'); return; }
+            const cashes = getCurrentAccountOptions().out.cashTypes;
+            dkModal(DK_HEAD('Buat Danaku Baru') + `<div class="space-y-2.5">
+                <div><label ${DK_LB}>Nama kepanitiaan / agenda</label><input id="dkName" placeholder="Misal: Panitia Maulid Nabi" ${DK_IN}></div>
+                <div><label ${DK_LB}>Pagu anggaran (Rp, opsional)</label><input type="number" id="dkBudget" min="0" placeholder="0" ${DK_IN}></div>
+                <div><label ${DK_LB}>Ambil uang dari kas</label><select id="dkCash" ${DK_IN}>${cashes.map(c => `<option>${esc(c)}</option>`).join('')}</select></div>
+                <div><label ${DK_LB}>Catatan (opsional)</label><input id="dkNote" ${DK_IN}></div></div>
+                <button onclick="dkSaveFund()" class="w-full py-3 bg-bri-blue text-white font-bold rounded-xl">Simpan Danaku</button>`);
+        }
+        async function dkSaveFund() {
+            const name = dkV('dkName').trim(), cash = dkV('dkCash');
+            if (!name || !cash) { alert('Nama dan kas wajib diisi.'); return; }
+            if (!initSupabaseClient()) { alert('Koneksi database belum siap!'); return; }
+            const { data, error } = await _supabase.from('danaku_funds').insert([{ account: state.currentAccount, name, budget: parseFloat(dkV('dkBudget')) || 0, source_cash: cash, note: dkV('dkNote').trim(), status: 'active' }]).select();
+            if (error || !data || !data.length) { alert('Gagal menyimpan Danaku: ' + (error ? error.message : 'tidak ada respons')); return; }
+            state.danakuFunds.push(dkMapFund(data[0])); dkClose(); renderDanakuPage();
+        }
+
+        function dkExpForm(fundId) {
+            const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
+            const sp = dkSpent(f.id), saldo = dkKasSaldo(f.account, f.sourceCash);
+            dkModal(DK_HEAD('Pengeluaran: ' + esc(f.name)) + `<div class="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-[11px] space-y-0.5">
+                <div>Diambil dari kas: <b>${esc(f.sourceCash)}</b> (saldo ${formatRp(saldo)})</div>
+                ${f.budget > 0 ? `<div>Sisa pagu: <b>${formatRp(f.budget - sp)}</b></div>` : ''}</div>
+                <div class="space-y-2.5">
+                <div><label ${DK_LB}>Tanggal</label><input type="date" id="dkDate" value="${getFormattedDate(0)}" ${DK_IN}></div>
+                <div><label ${DK_LB}>Keterangan</label><input id="dkDesc" placeholder="Misal: Konsumsi rapat" ${DK_IN}></div>
+                <div><label ${DK_LB}>Jumlah (Rp)</label><input type="number" id="dkAmt" min="1" placeholder="0" ${DK_IN}></div>
+                <div><label ${DK_LB}>Nama penerima (opsional)</label><input id="dkRec" ${DK_IN}></div></div>
+                <button onclick="dkSaveExp(${f.id})" class="w-full py-3 bg-bri-orange text-white font-bold rounded-xl">Simpan &amp; Catat ke Pengeluaran</button>`);
+        }
+        async function dkSaveExp(fundId) {
+            const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
+            const date = dkV('dkDate'), desc = dkV('dkDesc').trim(), amount = parseFloat(dkV('dkAmt')), recipient = dkV('dkRec').trim();
+            if (!date || !desc || !(amount > 0)) { alert('Tanggal, keterangan, dan jumlah wajib diisi.'); return; }
+            if (guardClosed(date)) return;
+            if (!initSupabaseClient()) { alert('Koneksi database belum siap!'); return; }
+            const sp = dkSpent(f.id), saldo = dkKasSaldo(f.account, f.sourceCash);
+            let w = '';
+            if (f.budget > 0 && sp + amount > f.budget) w += `Pengeluaran melebihi pagu (lebih ${formatRp(sp + amount - f.budget)}).\n`;
+            if (amount > saldo) w += `Saldo kas ${f.sourceCash} (${formatRp(saldo)}) tidak cukup, saldo akan minus.\n`;
+            if (w && !confirm(w + '\nLanjutkan?')) return;
+            // pastikan "Danaku" ada sebagai jenis pengeluaran
+            const o = getCurrentAccountOptions();
+            if (!o.out.categories.includes('Danaku')) {
+                o.out.categories.push('Danaku');
+                await _supabase.from('accounts').upsert([{ name: f.account, options: o }], { onConflict: 'name' });
+                renderDropdownOptions();
+            }
+            let txId = null;
+            try {
+                const a = await _supabase.from('transactions').insert([{ account: f.account, type: 'out', date, description: '[' + f.name + '] ' + desc, qty: 1, category: 'Danaku', cash_type: f.sourceCash, amount, ...(recipient ? { recipient } : {}) }]).select();
+                if (a.error || !a.data || !a.data.length) throw new Error(a.error ? a.error.message : 'database tidak merespons');
+                const t = a.data[0]; txId = t.id;
+                const b = await _supabase.from('danaku_expenses').insert([{ fund_id: f.id, account: f.account, date, description: desc, amount, recipient: recipient || null, transaction_id: txId }]).select();
+                if (b.error || !b.data || !b.data.length) throw new Error(b.error ? b.error.message : 'database tidak merespons');
+                state.transactions.push({ id: t.id, account: f.account, type: 'out', date, desc: t.description, qty: 1, category: 'Danaku', cashType: f.sourceCash, amount, recipient, createdAt: t.created_at });
+                const e = b.data[0];
+                state.danakuExpenses.push({ id: e.id, fundId: f.id, account: f.account, date, desc, amount, recipient, transactionId: txId, createdAt: e.created_at });
+            } catch (err) {
+                if (txId) await _supabase.from('transactions').delete().eq('id', txId);
+                alert('Gagal menyimpan: ' + err.message + (/recipient/.test(err.message) ? '\n\nJalankan migrasi_danaku_penerima.sql di Supabase terlebih dahulu.' : ''));
+                return;
+            }
+            dkClose(); renderDanakuPage();
+        }
+
+        function dkDetail(fundId) {
+            const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
+            const ex = state.danakuExpenses.filter(e => e.fundId === fundId).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
+            dkModal(DK_HEAD('Rincian: ' + esc(f.name)) + `<div class="max-h-[55vh] overflow-y-auto space-y-1.5">${ex.map(e => `<div class="flex justify-between items-start gap-2 p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                <div><div class="font-semibold">${esc(e.desc)}</div><div class="text-[10px] text-gray-500">${esc(e.date)} ${txTime(e)}${e.recipient ? ' &bull; ' + esc(e.recipient) : ''}</div></div>
+                <div class="text-right whitespace-nowrap"><div class="font-bold text-red-600">${formatRp(e.amount)}</div><button onclick="dkDelExp(${e.id})" class="text-red-400 text-[10px]"><i class="fa-solid fa-trash"></i> hapus</button></div></div>`).join('') || '<div class="text-center text-gray-400 py-6">Belum ada pengeluaran.</div>'}</div>
+                <div class="flex justify-between font-bold pt-1 border-t border-gray-100 dark:border-gray-700"><span>Total terpakai</span><span>${formatRp(dkSpent(fundId))}</span></div>`);
+        }
+        async function dkDelExp(id) {
+            const e = state.danakuExpenses.find(x => x.id === id); if (!e) return;
+            if (guardClosed(e.date)) return;
+            if (!confirm('Hapus pengeluaran ini beserta catatannya di menu Pengeluaran?')) return;
+            if (e.transactionId) {
+                const r = await _supabase.from('transactions').delete().eq('id', e.transactionId);
+                if (r.error) { alert('Gagal menghapus transaksi: ' + r.error.message); return; }
+                state.transactions = state.transactions.filter(t => t.id !== e.transactionId);
+            }
+            const r2 = await _supabase.from('danaku_expenses').delete().eq('id', id);
+            if (r2.error) { alert('Gagal menghapus: ' + r2.error.message); return; }
+            state.danakuExpenses = state.danakuExpenses.filter(x => x.id !== id);
+            dkDetail(e.fundId); renderDanakuPage();
+        }
+        async function dkToggle(id) {
+            const f = state.danakuFunds.find(x => x.id === id); if (!f) return;
+            const st = f.status === 'active' ? 'closed' : 'active';
+            const { error } = await _supabase.from('danaku_funds').update({ status: st }).eq('id', id);
+            if (error) { alert('Gagal mengubah status: ' + error.message); return; }
+            f.status = st; renderDanakuPage();
+        }
+        async function dkDelFund(id) {
+            if (state.danakuExpenses.some(e => e.fundId === id)) { alert('Danaku ini sudah punya pengeluaran. Hapus pengeluarannya dulu lewat Rincian, atau pilih Selesaikan.'); return; }
+            if (!confirm('Hapus Danaku ini?')) return;
+            const { error } = await _supabase.from('danaku_funds').delete().eq('id', id);
+            if (error) { alert('Gagal menghapus: ' + error.message); return; }
+            state.danakuFunds = state.danakuFunds.filter(f => f.id !== id); renderDanakuPage();
         }
 
         async function deleteTransaction(id) {
             const t0 = state.transactions.find(t => t.id === id);
             if (t0 && guardClosed(t0.date)) return;
             if (state.inventoryMoves.some(m => m.transactionId === id)) { alert('Transaksi ini berasal dari menu Stok. Hapus lewat menu Stok agar stok dan kas tetap cocok.'); return; }
+            if (state.danakuExpenses.some(e => e.transactionId === id)) { alert('Transaksi ini berasal dari menu Danaku. Hapus lewat menu Danaku agar catatan dana tetap cocok.'); return; }
             if (_supabase) {
                 const { error } = await _supabase.from('transactions').delete().eq('id', id);
                 if (error) {
@@ -3553,8 +3786,8 @@
                 return `
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
                         <td class="p-3">${idx + 1}</td>
-                        <td class="p-3 font-medium">${getDayName(t.date)}, ${t.date}</td>
-                        <td class="p-3 font-semibold">${t.desc}</td>
+                        <td class="p-3 font-medium">${getDayName(t.date)}, ${t.date}<div class="text-[10px] text-gray-400 font-normal"><i class="fa-regular fa-clock"></i> ${txTime(t)}</div></td>
+                        <td class="p-3 font-semibold">${t.desc}${t.recipient ? `<div class="text-[10px] text-gray-500 font-normal"><i class="fa-solid fa-user"></i> ${esc(t.recipient)}</div>` : ''}</td>
                         <td class="p-3 text-center font-bold">${t.qty}</td>
                         <td class="p-3"><span class="px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 text-[10px] font-semibold">${t.category}</span></td>
                         <td class="p-3"><span class="px-2 py-0.5 rounded bg-blue-50 text-bri-blue dark:bg-blue-900/30 text-[10px] font-semibold">${t.cashType}</span></td>
@@ -3591,8 +3824,8 @@
                 return `
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition">
                         <td class="p-3">${idx + 1}</td>
-                        <td class="p-3 font-medium">${getDayName(t.date)}, ${t.date}</td>
-                        <td class="p-3 font-semibold">${t.desc}</td>
+                        <td class="p-3 font-medium">${getDayName(t.date)}, ${t.date}<div class="text-[10px] text-gray-400 font-normal"><i class="fa-regular fa-clock"></i> ${txTime(t)}</div></td>
+                        <td class="p-3 font-semibold">${t.desc}${t.recipient ? `<div class="text-[10px] text-gray-500 font-normal"><i class="fa-solid fa-user"></i> ${esc(t.recipient)}</div>` : ''}</td>
                         <td class="p-3 text-center font-bold">${t.qty}</td>
                         <td class="p-3"><span class="px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 text-[10px] font-semibold">${t.category}</span></td>
                         <td class="p-3"><span class="px-2 py-0.5 rounded bg-blue-50 text-bri-blue dark:bg-blue-900/30 text-[10px] font-semibold">${t.cashType}</span></td>
@@ -3669,6 +3902,8 @@
                     scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
                 }
             });
+            renderBarCharts();
+            renderDayCompare();
         }
 
         function renderMicroCharts() {
