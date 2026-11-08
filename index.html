@@ -3524,6 +3524,8 @@
         function saSetView(v) { saView = v; renderSalesAnalysis(); }
         function saShort(v, money) { return !money ? v : v >= 1e6 ? +(v / 1e6).toFixed(1) + 'jt' : v >= 1e3 ? +(v / 1e3).toFixed(1) + 'rb' : v; }
 
+        const SA_PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'];
+
         function renderSalesAnalysis() {
             const cv = document.getElementById('salesBarChart'); if (!cv) return;
             const fe = document.getElementById('saFrom'), te = document.getElementById('saTo');
@@ -3537,30 +3539,35 @@
             const acc = state.currentAccount, DOW = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             const tx = state.transactions.filter(t => t.account === acc && t.type === 'in' && t.date >= from && t.date <= to);
             const val = t => t.qty * t.amount;
-            let labels = [], values = [], money = true, names = [], note = '', span = null;
+            // Warna jenis konsisten di semua tampilan (urut abjad seluruh jenis pemasukan akun)
+            const allCats = [...new Set(state.transactions.filter(t => t.account === acc && t.type === 'in').map(t => t.category))].sort();
+            const catColor = c => SA_PALETTE[Math.max(0, allCats.indexOf(c)) % SA_PALETTE.length];
+            let labels = [], names = [], values = [], money = true, note = '', span = null, idxOf = null, div = null, colorList = null;
 
             if (saView === 'date') {
                 const days = [], dt = new Date(from + 'T00:00:00Z'), end = new Date(to + 'T00:00:00Z');
                 while (dt <= end && days.length < 800) { days.push(dt.toISOString().slice(0, 10)); dt.setUTCDate(dt.getUTCDate() + 1); }
-                const monthly = days.length > 62, m = new Map();
-                days.forEach(d => { const k = monthly ? d.slice(0, 7) : d; if (!m.has(k)) m.set(k, 0); });
-                tx.forEach(t => { const k = monthly ? t.date.slice(0, 7) : t.date; m.set(k, (m.get(k) || 0) + val(t)); });
-                const keys = [...m.keys()];
-                labels = keys.map(k => monthly ? k : k.slice(5)); values = keys.map(k => m.get(k));
+                const monthly = days.length > 62, keys = [...new Set(days.map(d => monthly ? d.slice(0, 7) : d))];
+                labels = keys.map(k => monthly ? k : k.slice(5));
                 names = keys.map(k => monthly ? 'Bulan ' + k : getDayName(k) + ', ' + k);
+                const ki = new Map(keys.map((k, i) => [k, i]));
+                idxOf = t => ki.get(monthly ? t.date.slice(0, 7) : t.date);
                 note = monthly ? 'Rentang panjang dijumlah per bulan.' : '';
             } else if (saView === 'dow') {
-                const sum = Array(7).fill(0), cnt = Array(7).fill(0), dt = new Date(from + 'T00:00:00Z'), end = new Date(to + 'T00:00:00Z');
+                const cnt = Array(7).fill(0), dt = new Date(from + 'T00:00:00Z'), end = new Date(to + 'T00:00:00Z');
                 for (let n = 0; dt <= end && n < 800; n++) { cnt[dt.getUTCDay()]++; dt.setUTCDate(dt.getUTCDate() + 1); }
-                tx.forEach(t => { sum[new Date(t.date + 'T00:00:00Z').getUTCDay()] += val(t); });
                 const order = [1, 2, 3, 4, 5, 6, 0].filter(i => cnt[i] > 0);
-                labels = order.map(i => DOW[i]); values = order.map(i => Math.round(sum[i] / cnt[i])); names = labels.slice();
+                labels = order.map(i => DOW[i]); names = labels.slice(); div = order.map(i => cnt[i]);
+                idxOf = t => order.indexOf(new Date(t.date + 'T00:00:00Z').getUTCDay());
                 note = 'Rata-rata pemasukan per hari tersebut pada rentang terpilih.';
             } else if (saView === 'hour') {
-                const sum = Array(24).fill(0); let skipped = 0;
-                tx.forEach(t => { if (!t.createdAt) { skipped++; return; } sum[new Date(t.createdAt).getHours()] += val(t); });
-                const used = sum.map((v, i) => v > 0 ? i : -1).filter(i => i >= 0);
-                if (used.length) { const a = used[0], b = used[used.length - 1]; for (let h = a; h <= b; h++) { labels.push(String(h).padStart(2, '0') + '.00'); values.push(sum[h]); names.push(String(h).padStart(2, '0') + '.00 - ' + String((h + 1) % 24).padStart(2, '0') + '.00'); } }
+                const hrs = tx.filter(t => t.createdAt).map(t => new Date(t.createdAt).getHours());
+                const skipped = tx.length - hrs.length;
+                if (hrs.length) {
+                    const a = Math.min(...hrs), b = Math.max(...hrs);
+                    for (let h = a; h <= b; h++) { labels.push(String(h).padStart(2, '0') + '.00'); names.push(String(h).padStart(2, '0') + '.00 - ' + String((h + 1) % 24).padStart(2, '0') + '.00'); }
+                    idxOf = t => { if (!t.createdAt) return -1; const i = new Date(t.createdAt).getHours() - a; return i >= 0 && i < labels.length ? i : -1; };
+                }
                 note = 'Berdasarkan jam transaksi dicatat.' + (skipped ? ` ${skipped} transaksi tanpa jam dilewati.` : '');
             } else if (saView === 'item') {
                 money = false;
@@ -3570,37 +3577,61 @@
                 const rows = [...q.entries()].map(([id, n]) => ({ n: (state.inventoryItems.find(i => i.id === id) || {}).name || '?', q: n, r: rev.get(id) || 0 })).sort((a, b) => b.q - a.q);
                 span = rows; labels = rows.slice(0, 12).map(r => r.n.length > 14 ? r.n.slice(0, 13) + '…' : r.n); values = rows.slice(0, 12).map(r => r.q); names = rows.slice(0, 12).map(r => r.n);
                 note = 'Jumlah terjual dari menu Stok dan Kasir.' + (rows.length > 12 ? ` Grafik menampilkan 12 teratas dari ${rows.length} barang.` : '');
-                if (rows.length) { window._saItemRows = rows; }
             } else {
                 const m = new Map();
                 tx.forEach(t => m.set(t.category, (m.get(t.category) || 0) + val(t)));
                 const rows = [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
                 labels = rows.map(r => r[0].length > 14 ? r[0].slice(0, 13) + '…' : r[0]); values = rows.map(r => r[1]); names = rows.map(r => r[0]);
+                colorList = rows.map(r => catColor(r[0]));
+            }
+
+            // Tumpukan per jenis pemasukan (Per Tanggal / Hari / Jam)
+            let matrix = null;
+            if (idxOf) {
+                const n = labels.length, by = new Map();
+                tx.forEach(t => { const i = idxOf(t); if (i == null || i < 0) return; if (!by.has(t.category)) by.set(t.category, Array(n).fill(0)); by.get(t.category)[i] += val(t); });
+                if (div) by.forEach(arr => arr.forEach((v, i) => { arr[i] = Math.round(v / div[i]); }));
+                matrix = [...by.entries()].sort((a, b) => b[1].reduce((x, y) => x + y, 0) - a[1].reduce((x, y) => x + y, 0));
+                values = labels.map((_, i) => matrix.reduce((s, [, arr]) => s + arr[i], 0));
+                note += ' Garis hitam menandai yang paling ramai.';
             }
 
             // Penanda terlaris & tersepi
             let hi = -1, lo = -1;
             if (values.length) {
-                const pool = (saView === 'item') ? (span || []).map(r => r.q) : values;
-                const mx = Math.max(...values);
+                const mx = Math.max(...values), mn = Math.min(...values);
                 hi = values.indexOf(mx);
-                const mn = Math.min(...pool);
-                lo = (saView === 'item') ? -2 : values.indexOf(mn);
-                if (mx === mn && saView !== 'item') lo = -1;
+                lo = saView === 'item' ? -2 : (mx === mn ? -1 : values.indexOf(mn));
             }
-            const colors = values.map((v, i) => i === hi ? '#047857' : i === lo ? '#F59E0B' : '#34D399');
+            const stacked = !!matrix;
+            let datasets;
+            if (stacked) {
+                const bc = values.map((v, i) => i === hi ? '#111827' : 'transparent');
+                const bw = values.map((v, i) => i === hi ? 2 : 0);
+                datasets = matrix.map(([c, arr]) => ({ label: c, data: arr, backgroundColor: catColor(c), borderColor: bc, borderWidth: bw, borderSkipped: false, stack: 's' }));
+            } else {
+                const cols = colorList || values.map((v, i) => i === hi ? '#047857' : '#34D399');
+                datasets = [{ data: values, backgroundColor: cols, borderRadius: 4, barPercentage: 0.7 }];
+            }
             if (salesChartInstance) salesChartInstance.destroy();
             salesChartInstance = new Chart(cv.getContext('2d'), {
                 type: 'bar',
-                data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, barPercentage: 0.7 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
-                    tooltip: { callbacks: { title: it => names[it[0].dataIndex] || '', label: c => money ? formatRp(c.parsed.y) : c.parsed.y + ' terjual' } } },
-                    scales: { x: { ticks: { font: { size: 9 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 14 }, grid: { display: false } }, y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => saShort(v, money), maxTicksLimit: 5 } } } }
+                data: { labels, datasets },
+                options: { responsive: true, maintainAspectRatio: false,
+                    interaction: stacked ? { mode: 'index', intersect: false } : undefined,
+                    plugins: { legend: { display: stacked, position: 'top', labels: { boxWidth: 10, font: { size: 9 } } },
+                        tooltip: { filter: stacked ? (i => i.parsed.y > 0) : undefined, callbacks: {
+                            title: it => names[it[0].dataIndex] || '',
+                            label: c => (stacked ? c.dataset.label + ': ' : '') + (money ? formatRp(c.parsed.y) : c.parsed.y + ' terjual'),
+                            footer: its => stacked && its.length > 1 ? 'Total: ' + formatRp(its.reduce((s, x) => s + x.parsed.y, 0)) : '' } } },
+                    scales: { x: { stacked, ticks: { font: { size: 9 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 14 }, grid: { display: false } },
+                        y: { stacked, beginAtZero: true, ticks: { font: { size: 9 }, callback: v => saShort(v, money), maxTicksLimit: 5 } } } }
             });
 
-            // Ringkasan otomatis
+            // Ringkasan otomatis + rincian jenis
             const fm = v => money ? formatRp(v) : v + ' terjual';
-            const chip = (cls, ico, t, l, v) => `<div class="px-3 py-2 rounded-xl ${cls}"><div class="text-[10px] font-bold opacity-80"><i class="fa-solid ${ico}"></i> ${t}</div><div class="font-extrabold">${esc(l)}</div><div class="opacity-80">${v}</div></div>`;
+            const bd = i => matrix ? matrix.filter(([, a]) => a[i] > 0).map(([c, a]) => `<span class="inline-flex items-center gap-1 mr-1.5"><i class="inline-block w-2 h-2 rounded-sm" style="background:${catColor(c)}"></i>${esc(c)} ${formatRp(a[i])}</span>`).join('') : '';
+            const chip = (cls, ico, t, l, v) => `<div class="px-3 py-2 rounded-xl ${cls}"><div class="text-[10px] font-bold opacity-80"><i class="fa-solid ${ico}"></i> ${t}</div><div class="font-extrabold">${esc(l)}</div><div class="opacity-90">${v}</div></div>`;
             let ins = '';
             if (!values.length || (values.every(v => v === 0) && saView !== 'item')) {
                 ins = `<div class="sm:col-span-2 text-center text-gray-400 py-2">Belum ada data pemasukan pada rentang ${from} s/d ${to}.</div>`;
@@ -3610,8 +3641,8 @@
                     + chip('bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300', 'fa-snowflake', 'PALING SEPI', bot.n, fm(bot.q) + (bot.q === 0 ? ' (tidak laku)' : ''))
                     : `<div class="sm:col-span-2 text-center text-gray-400 py-2">Belum ada penjualan barang pada rentang ini.</div>`;
             } else {
-                ins = chip('bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300', 'fa-fire', 'PALING RAMAI', names[hi], fm(values[hi]))
-                    + (lo >= 0 ? chip('bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300', 'fa-snowflake', 'PALING SEPI', names[lo], values[lo] === 0 ? 'tanpa pemasukan' : fm(values[lo])) : '');
+                ins = chip('bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300', 'fa-fire', 'PALING RAMAI', names[hi], fm(values[hi]) + (matrix ? '<div class="mt-0.5">' + bd(hi) + '</div>' : ''))
+                    + (lo >= 0 ? chip('bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300', 'fa-snowflake', 'PALING SEPI', names[lo], values[lo] === 0 ? 'tanpa pemasukan' : fm(values[lo]) + (matrix ? '<div class="mt-0.5">' + bd(lo) + '</div>' : '')) : '');
             }
             const total = tx.reduce((a, t) => a + val(t), 0);
             document.getElementById('saInsight').innerHTML = ins + `<div class="sm:col-span-2 text-[10px] text-gray-400">Total pemasukan ${from} s/d ${to}: <b>${formatRp(total)}</b> dari ${tx.length} transaksi. ${note}</div>`;
