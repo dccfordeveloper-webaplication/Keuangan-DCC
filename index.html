@@ -606,19 +606,6 @@
                         <canvas id="financialChart" class="w-full h-64"></canvas>
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
-                        <h4 class="text-xs font-bold mb-2"><i class="fa-solid fa-chart-column text-bri-blue"></i> Pemasukan vs Pengeluaran Harian</h4>
-                        <canvas id="dailyBarChart" class="w-full h-64"></canvas>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm interactive-card">
-                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                            <h4 class="text-xs font-bold"><i class="fa-solid fa-calendar-day text-bri-orange"></i> Perbandingan pada Tanggal Terpilih</h4>
-                            <input type="date" id="chartDate" onchange="renderDayCompare()" class="p-1.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none font-bold">
-                        </div>
-                        <canvas id="dayCompareChart" class="w-full h-52"></canvas>
-                        <div id="dayCompareText" class="text-[11px] text-center text-gray-500 mt-2"></div>
-                    </div>
 
                     <div class="grid grid-cols-3 gap-2">
                         <div class="bg-blue-50 dark:bg-gray-700/50 p-3 rounded-2xl text-center shadow-sm">
@@ -633,6 +620,23 @@
                             <span class="text-[10px] text-gray-500 dark:text-gray-400 block font-semibold">PENGELUARAN</span>
                             <span class="text-xs font-black text-red-600 dark:text-red-400" id="chartExpense">Rp 0</span>
                         </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <h4 class="text-xs font-bold"><i class="fa-solid fa-chart-column text-bri-blue"></i> Analisis Penjualan (Pemasukan)</h4>
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <button onclick="saPreset(1)" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-gray-700 dark:text-blue-300">Hari ini</button>
+                                <button onclick="saPreset(7)" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-gray-700 dark:text-blue-300">7 hari</button>
+                                <button onclick="saPreset(30)" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-gray-700 dark:text-blue-300">30 hari</button>
+                                <input type="date" id="saFrom" onchange="renderSalesAnalysis()" class="p-1.5 text-[10px] bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none font-bold">
+                                <span class="text-[10px] text-gray-400">s/d</span>
+                                <input type="date" id="saTo" onchange="renderSalesAnalysis()" class="p-1.5 text-[10px] bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none font-bold">
+                            </div>
+                        </div>
+                        <div id="saTabs" class="flex flex-wrap gap-1 mb-2"></div>
+                        <div class="relative h-40"><canvas id="salesBarChart"></canvas></div>
+                        <div id="saInsight" class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]"></div>
                     </div>
                 </div>
             </section>
@@ -3507,41 +3511,110 @@
         // ==========================================
         // GRAFIK BAR HARIAN & PERBANDINGAN TANGGAL (Makro)
         // ==========================================
-        let barChartInstance = null, dayChartInstance = null;
-        function renderBarCharts() {
-            const cv = document.getElementById('dailyBarChart'); if (!cv) return;
-            const days = parseInt(document.getElementById('chartPeriod').value);
-            const tx = state.transactions.filter(t => t.account === state.currentAccount);
-            const monthly = days > 31, buckets = new Map();
-            for (let i = days - 1; i >= 0; i--) { const d = getFormattedDate(-i), k = monthly ? d.slice(0, 7) : d; if (!buckets.has(k)) buckets.set(k, { in: 0, out: 0 }); }
-            tx.forEach(t => { const b = buckets.get(monthly ? t.date.slice(0, 7) : t.date); if (!b) return; if (t.type === 'in') b.in += t.qty * t.amount; else b.out += t.qty * t.amount; });
-            const keys = [...buckets.keys()];
-            if (barChartInstance) barChartInstance.destroy();
-            barChartInstance = new Chart(cv.getContext('2d'), {
-                type: 'bar',
-                data: { labels: keys.map(k => monthly ? k : k.slice(5)), datasets: [
-                    { label: monthly ? 'Pemasukan (per bulan)' : 'Pemasukan Harian', data: keys.map(k => buckets.get(k).in), backgroundColor: '#10B981', borderRadius: 4 },
-                    { label: monthly ? 'Pengeluaran (per bulan)' : 'Pengeluaran Harian', data: keys.map(k => buckets.get(k).out), backgroundColor: '#EF4444', borderRadius: 4 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
-                    scales: { x: { ticks: { font: { size: 9 } } }, y: { beginAtZero: true, ticks: { font: { size: 9 } } } } }
-            });
+        // ==========================================
+        // ANALISIS PENJUALAN (hanya pemasukan): tanggal, hari, jam, barang, jenis
+        // ==========================================
+        let salesChartInstance = null, saView = 'date';
+        const SA_VIEWS = { date: 'Per Tanggal', dow: 'Per Hari', hour: 'Per Jam', item: 'Barang Terlaris', cat: 'Per Jenis' };
+        function saPreset(n) {
+            document.getElementById('saTo').value = getFormattedDate(0);
+            document.getElementById('saFrom').value = getFormattedDate(-(n - 1));
+            renderSalesAnalysis();
         }
-        function renderDayCompare() {
-            const cv = document.getElementById('dayCompareChart'); if (!cv) return;
-            const inp = document.getElementById('chartDate'); if (!inp.value) inp.value = getFormattedDate(0);
-            const d = inp.value;
-            const tx = state.transactions.filter(t => t.account === state.currentAccount && t.date === d);
-            const sum = ty => tx.filter(t => t.type === ty).reduce((a, t) => a + t.qty * t.amount, 0);
-            const inn = sum('in'), out = sum('out'), nIn = tx.filter(t => t.type === 'in').length, nOut = tx.length - nIn;
-            if (dayChartInstance) dayChartInstance.destroy();
-            dayChartInstance = new Chart(cv.getContext('2d'), {
+        function saSetView(v) { saView = v; renderSalesAnalysis(); }
+        function saShort(v, money) { return !money ? v : v >= 1e6 ? +(v / 1e6).toFixed(1) + 'jt' : v >= 1e3 ? +(v / 1e3).toFixed(1) + 'rb' : v; }
+
+        function renderSalesAnalysis() {
+            const cv = document.getElementById('salesBarChart'); if (!cv) return;
+            const fe = document.getElementById('saFrom'), te = document.getElementById('saTo');
+            if (!te.value) te.value = getFormattedDate(0);
+            if (!fe.value) fe.value = getFormattedDate(-6);
+            let from = fe.value, to = te.value;
+            if (from > to) { [from, to] = [to, from]; fe.value = from; te.value = to; }
+            document.getElementById('saTabs').innerHTML = Object.entries(SA_VIEWS).map(([k, l]) =>
+                `<button onclick="saSetView('${k}')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${saView === k ? 'bg-bri-blue text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}">${l}</button>`).join('');
+
+            const acc = state.currentAccount, DOW = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const tx = state.transactions.filter(t => t.account === acc && t.type === 'in' && t.date >= from && t.date <= to);
+            const val = t => t.qty * t.amount;
+            let labels = [], values = [], money = true, names = [], note = '', span = null;
+
+            if (saView === 'date') {
+                const days = [], dt = new Date(from + 'T00:00:00Z'), end = new Date(to + 'T00:00:00Z');
+                while (dt <= end && days.length < 800) { days.push(dt.toISOString().slice(0, 10)); dt.setUTCDate(dt.getUTCDate() + 1); }
+                const monthly = days.length > 62, m = new Map();
+                days.forEach(d => { const k = monthly ? d.slice(0, 7) : d; if (!m.has(k)) m.set(k, 0); });
+                tx.forEach(t => { const k = monthly ? t.date.slice(0, 7) : t.date; m.set(k, (m.get(k) || 0) + val(t)); });
+                const keys = [...m.keys()];
+                labels = keys.map(k => monthly ? k : k.slice(5)); values = keys.map(k => m.get(k));
+                names = keys.map(k => monthly ? 'Bulan ' + k : getDayName(k) + ', ' + k);
+                note = monthly ? 'Rentang panjang dijumlah per bulan.' : '';
+            } else if (saView === 'dow') {
+                const sum = Array(7).fill(0), cnt = Array(7).fill(0), dt = new Date(from + 'T00:00:00Z'), end = new Date(to + 'T00:00:00Z');
+                for (let n = 0; dt <= end && n < 800; n++) { cnt[dt.getUTCDay()]++; dt.setUTCDate(dt.getUTCDate() + 1); }
+                tx.forEach(t => { sum[new Date(t.date + 'T00:00:00Z').getUTCDay()] += val(t); });
+                const order = [1, 2, 3, 4, 5, 6, 0].filter(i => cnt[i] > 0);
+                labels = order.map(i => DOW[i]); values = order.map(i => Math.round(sum[i] / cnt[i])); names = labels.slice();
+                note = 'Rata-rata pemasukan per hari tersebut pada rentang terpilih.';
+            } else if (saView === 'hour') {
+                const sum = Array(24).fill(0); let skipped = 0;
+                tx.forEach(t => { if (!t.createdAt) { skipped++; return; } sum[new Date(t.createdAt).getHours()] += val(t); });
+                const used = sum.map((v, i) => v > 0 ? i : -1).filter(i => i >= 0);
+                if (used.length) { const a = used[0], b = used[used.length - 1]; for (let h = a; h <= b; h++) { labels.push(String(h).padStart(2, '0') + '.00'); values.push(sum[h]); names.push(String(h).padStart(2, '0') + '.00 - ' + String((h + 1) % 24).padStart(2, '0') + '.00'); } }
+                note = 'Berdasarkan jam transaksi dicatat.' + (skipped ? ` ${skipped} transaksi tanpa jam dilewati.` : '');
+            } else if (saView === 'item') {
+                money = false;
+                const q = new Map(), rev = new Map();
+                state.inventoryItems.filter(i => i.account === acc).forEach(i => { q.set(i.id, 0); rev.set(i.id, 0); });
+                state.inventoryMoves.filter(m => m.account === acc && m.type === 'out' && m.date >= from && m.date <= to).forEach(m => { q.set(m.itemId, (q.get(m.itemId) || 0) + m.qty); rev.set(m.itemId, (rev.get(m.itemId) || 0) + m.qty * m.unitPrice); });
+                const rows = [...q.entries()].map(([id, n]) => ({ n: (state.inventoryItems.find(i => i.id === id) || {}).name || '?', q: n, r: rev.get(id) || 0 })).sort((a, b) => b.q - a.q);
+                span = rows; labels = rows.slice(0, 12).map(r => r.n.length > 14 ? r.n.slice(0, 13) + '…' : r.n); values = rows.slice(0, 12).map(r => r.q); names = rows.slice(0, 12).map(r => r.n);
+                note = 'Jumlah terjual dari menu Stok dan Kasir.' + (rows.length > 12 ? ` Grafik menampilkan 12 teratas dari ${rows.length} barang.` : '');
+                if (rows.length) { window._saItemRows = rows; }
+            } else {
+                const m = new Map();
+                tx.forEach(t => m.set(t.category, (m.get(t.category) || 0) + val(t)));
+                const rows = [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+                labels = rows.map(r => r[0].length > 14 ? r[0].slice(0, 13) + '…' : r[0]); values = rows.map(r => r[1]); names = rows.map(r => r[0]);
+            }
+
+            // Penanda terlaris & tersepi
+            let hi = -1, lo = -1;
+            if (values.length) {
+                const pool = (saView === 'item') ? (span || []).map(r => r.q) : values;
+                const mx = Math.max(...values);
+                hi = values.indexOf(mx);
+                const mn = Math.min(...pool);
+                lo = (saView === 'item') ? -2 : values.indexOf(mn);
+                if (mx === mn && saView !== 'item') lo = -1;
+            }
+            const colors = values.map((v, i) => i === hi ? '#047857' : i === lo ? '#F59E0B' : '#34D399');
+            if (salesChartInstance) salesChartInstance.destroy();
+            salesChartInstance = new Chart(cv.getContext('2d'), {
                 type: 'bar',
-                data: { labels: ['Pemasukan', 'Pengeluaran', 'Selisih'], datasets: [{ data: [inn, out, inn - out], backgroundColor: ['#10B981', '#EF4444', inn - out >= 0 ? '#00529C' : '#F59E0B'], borderRadius: 6 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { font: { size: 9 } } }, x: { ticks: { font: { size: 10 } } } } }
+                data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4, barPercentage: 0.7 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
+                    tooltip: { callbacks: { title: it => names[it[0].dataIndex] || '', label: c => money ? formatRp(c.parsed.y) : c.parsed.y + ' terjual' } } },
+                    scales: { x: { ticks: { font: { size: 9 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 14 }, grid: { display: false } }, y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => saShort(v, money), maxTicksLimit: 5 } } } }
             });
-            document.getElementById('dayCompareText').innerHTML = tx.length
-                ? `${esc(getDayName(d))}, ${d}: pemasukan <b class="text-green-600">${formatRp(inn)}</b> (${nIn} transaksi), pengeluaran <b class="text-red-600">${formatRp(out)}</b> (${nOut} transaksi), selisih <b>${formatRp(inn - out)}</b>`
-                : `Tidak ada transaksi pada ${esc(getDayName(d))}, ${d}.`;
+
+            // Ringkasan otomatis
+            const fm = v => money ? formatRp(v) : v + ' terjual';
+            const chip = (cls, ico, t, l, v) => `<div class="px-3 py-2 rounded-xl ${cls}"><div class="text-[10px] font-bold opacity-80"><i class="fa-solid ${ico}"></i> ${t}</div><div class="font-extrabold">${esc(l)}</div><div class="opacity-80">${v}</div></div>`;
+            let ins = '';
+            if (!values.length || (values.every(v => v === 0) && saView !== 'item')) {
+                ins = `<div class="sm:col-span-2 text-center text-gray-400 py-2">Belum ada data pemasukan pada rentang ${from} s/d ${to}.</div>`;
+            } else if (saView === 'item') {
+                const r = span || [], top = r[0], bot = r[r.length - 1];
+                ins = top.q > 0 ? chip('bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300', 'fa-fire', 'PALING LARIS', top.n, fm(top.q) + ' &bull; ' + formatRp(top.r))
+                    + chip('bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300', 'fa-snowflake', 'PALING SEPI', bot.n, fm(bot.q) + (bot.q === 0 ? ' (tidak laku)' : ''))
+                    : `<div class="sm:col-span-2 text-center text-gray-400 py-2">Belum ada penjualan barang pada rentang ini.</div>`;
+            } else {
+                ins = chip('bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300', 'fa-fire', 'PALING RAMAI', names[hi], fm(values[hi]))
+                    + (lo >= 0 ? chip('bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300', 'fa-snowflake', 'PALING SEPI', names[lo], values[lo] === 0 ? 'tanpa pemasukan' : fm(values[lo])) : '');
+            }
+            const total = tx.reduce((a, t) => a + val(t), 0);
+            document.getElementById('saInsight').innerHTML = ins + `<div class="sm:col-span-2 text-[10px] text-gray-400">Total pemasukan ${from} s/d ${to}: <b>${formatRp(total)}</b> dari ${tx.length} transaksi. ${note}</div>`;
         }
 
         // ==========================================
@@ -3902,8 +3975,7 @@
                     scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { font: { size: 9 } } } }
                 }
             });
-            renderBarCharts();
-            renderDayCompare();
+            renderSalesAnalysis();
         }
 
         function renderMicroCharts() {
