@@ -1017,20 +1017,28 @@
         .pin-shake { animation: pinShake .35s; }
     </style>
     <div id="pinModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" style="z-index:9999">
-        <div id="pinCard" class="bg-white dark:bg-gray-800 w-full max-w-xs rounded-2xl shadow-xl p-5 space-y-4">
+        <div id="pinCard" class="bg-white dark:bg-gray-800 w-full max-w-xs rounded-2xl shadow-xl p-5 space-y-4" style="user-select:none;-webkit-user-select:none">
             <div class="text-center space-y-1">
                 <div class="mx-auto w-12 h-12 rounded-full bg-blue-50 dark:bg-gray-700 text-bri-blue dark:text-blue-300 flex items-center justify-center text-lg"><i class="fa-solid fa-lock"></i></div>
                 <h3 class="font-bold text-sm">Masukkan PIN</h3>
                 <p class="text-[11px] text-gray-500 dark:text-gray-400">PIN diperlukan untuk menambah, mengubah, atau menghapus data.</p>
             </div>
-            <form onsubmit="pinSubmit(event)" class="space-y-3 text-xs" autocomplete="off">
-                <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" placeholder="PIN" oninput="pinOnInput(this)" class="w-full p-3 text-center text-lg tracking-[0.4em] font-bold bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-bri-blue">
-                <p id="pinError" class="hidden text-center text-[11px] font-semibold text-red-500"></p>
-                <div class="flex gap-2">
-                    <button type="button" onclick="pinCancel()" class="flex-1 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl text-xs">Batal</button>
-                    <button type="submit" class="flex-1 py-2.5 bg-bri-blue text-white font-bold rounded-xl text-xs shadow-md transition transform active:scale-95">Buka</button>
-                </div>
-            </form>
+            <div id="pinDots" class="flex justify-center gap-2 py-1" aria-label="Isian PIN"></div>
+            <p id="pinError" class="hidden text-center text-[11px] font-semibold text-red-500"></p>
+            <div class="grid grid-cols-3 gap-2 text-gray-800 dark:text-gray-100">
+                    <button type="button" onclick="pinPress('1')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">1</button>
+                    <button type="button" onclick="pinPress('2')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">2</button>
+                    <button type="button" onclick="pinPress('3')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">3</button>
+                    <button type="button" onclick="pinPress('4')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">4</button>
+                    <button type="button" onclick="pinPress('5')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">5</button>
+                    <button type="button" onclick="pinPress('6')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">6</button>
+                    <button type="button" onclick="pinPress('7')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">7</button>
+                    <button type="button" onclick="pinPress('8')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">8</button>
+                    <button type="button" onclick="pinPress('9')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">9</button>
+                    <button type="button" onclick="pinCancel()" class="pin-key py-3 text-[11px] font-bold text-gray-500 dark:text-gray-300 rounded-xl active:scale-95">Batal</button>
+                    <button type="button" onclick="pinPress('0')" class="pin-key py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl text-lg font-bold transition active:scale-95">0</button>
+                    <button type="button" onclick="pinBack()" class="pin-key py-3 text-gray-500 dark:text-gray-300 rounded-xl active:scale-95" aria-label="Hapus"><i class="fa-solid fa-delete-left"></i></button>
+            </div>
         </div>
     </div>
 
@@ -4995,6 +5003,20 @@
         function pinIsUnlocked() { return PIN_SESSION_MINUTES > 0 && Date.now() < _pinUntil; }
         function pinTouch() { if (PIN_SESSION_MINUTES > 0) _pinUntil = Date.now() + PIN_SESSION_MINUTES * 60000; }
 
+        // Tidak memakai <input>/<form>, jadi browser tidak menawarkan "simpan sandi" atau autofill.
+        // PIN hanya ditampung sementara di variabel _pinBuf lalu dihapus.
+        let _pinBuf = '';
+        const PIN_LEN = 8;
+
+        function pinRenderDots() {
+            const el = document.getElementById('pinDots');
+            let h = '';
+            for (let i = 0; i < PIN_LEN; i++) {
+                h += '<span class="w-3 h-3 rounded-full ' + (i < _pinBuf.length ? 'bg-bri-blue' : 'bg-gray-200 dark:bg-gray-600') + '"></span>';
+            }
+            el.innerHTML = h;
+        }
+
         function pinShowError(msg) {
             const el = document.getElementById('pinError');
             el.innerText = msg; el.classList.remove('hidden');
@@ -5004,7 +5026,7 @@
 
         function pinClose(result) {
             document.getElementById('pinModal').classList.add('hidden');
-            document.getElementById('pinInput').value = '';
+            _pinBuf = ''; pinRenderDots();
             _pinOpen = false;
             const r = _pinResolve; _pinResolve = null;
             if (r) r(result);
@@ -5012,24 +5034,28 @@
 
         function pinCancel() { pinClose(false); }
 
-        function pinOnInput(el) {
-            el.value = el.value.replace(/\D/g, '');
+        function pinPress(d) {
+            if (!_pinOpen || _pinBuf.length >= PIN_LEN) return;
             document.getElementById('pinError').classList.add('hidden');
-            if (el.value.length === 8) pinSubmit();
+            _pinBuf += d; pinRenderDots();
+            if (_pinBuf.length === PIN_LEN) pinSubmit();
         }
 
-        function pinSubmit(e) {
-            if (e && e.preventDefault) e.preventDefault();
-            const input = document.getElementById('pinInput');
+        function pinBack() {
+            if (!_pinOpen) return;
+            _pinBuf = _pinBuf.slice(0, -1); pinRenderDots();
+        }
+
+        function pinSubmit() {
             const remain = Math.ceil((_pinLockedUntil - Date.now()) / 1000);
-            if (remain > 0) { input.value = ''; pinShowError('Terlalu banyak percobaan. Coba lagi ' + remain + ' detik.'); return; }
-            if (pinSha256(PIN_SALT + input.value) === PIN_HASH) {
+            if (remain > 0) { _pinBuf = ''; pinRenderDots(); pinShowError('Terlalu banyak percobaan. Coba lagi ' + remain + ' detik.'); return; }
+            if (pinSha256(PIN_SALT + _pinBuf) === PIN_HASH) {
                 _pinFails = 0;
                 pinTouch();
                 pinClose(true);
             } else {
                 _pinFails++;
-                input.value = '';
+                _pinBuf = ''; pinRenderDots();
                 if (_pinFails >= PIN_MAX_TRIES) {
                     _pinFails = 0;
                     _pinLockedUntil = Date.now() + PIN_LOCK_SECONDS * 1000;
@@ -5037,7 +5063,6 @@
                 } else {
                     pinShowError('PIN salah. Sisa percobaan: ' + (PIN_MAX_TRIES - _pinFails));
                 }
-                input.focus();
             }
         }
 
@@ -5046,13 +5071,19 @@
             if (pinIsUnlocked()) { pinTouch(); return Promise.resolve(true); }
             if (_pinOpen) return Promise.resolve(false);   // cegah klik ganda memicu aksi dua kali
             _pinOpen = true;
+            _pinBuf = ''; pinRenderDots();
             document.getElementById('pinError').classList.add('hidden');
             document.getElementById('pinModal').classList.remove('hidden');
-            setTimeout(() => document.getElementById('pinInput').focus(), 50);
             return new Promise(resolve => { _pinResolve = resolve; });
         }
 
-        document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && _pinOpen) pinCancel(); });
+        // Keyboard fisik: angka, Backspace, Esc
+        document.addEventListener('keydown', ev => {
+            if (!_pinOpen) return;
+            if (/^[0-9]$/.test(ev.key)) { ev.preventDefault(); pinPress(ev.key); }
+            else if (ev.key === 'Backspace') { ev.preventDefault(); pinBack(); }
+            else if (ev.key === 'Escape') { ev.preventDefault(); pinCancel(); }
+        });
 
         // Bungkus fungsi: jalankan aslinya hanya setelah PIN benar.
         function pinGuard(name) {
