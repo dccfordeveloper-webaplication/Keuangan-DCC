@@ -129,6 +129,7 @@
                         <select id="accountSelect" onchange="switchAccount(this.value)" class="bg-transparent font-extrabold text-sm text-white focus:outline-none cursor-pointer">
                             <!-- Dynamic Accounts -->
                         </select>
+                        <button onclick="deleteAccount()" class="ml-1.5 w-6 h-6 rounded-lg bg-white/10 hover:bg-red-500/80 text-blue-100 hover:text-white text-[10px] align-middle transition" title="Hapus akun ini beserta seluruh datanya"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>
                 <button onclick="openModal('addAccountModal')" class="px-3 py-1.5 bg-bri-orange hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md transition transform active:scale-95 shrink-0">
@@ -758,6 +759,7 @@
                     <div class="flex flex-wrap gap-1.5 justify-end"><button onclick="dkExportExcel()" class="px-2.5 py-2 bg-green-600 text-white rounded-xl text-xs font-bold shadow-md" title="Unduh rekap semua Danaku"><i class="fa-solid fa-file-excel"></i> Excel</button><button onclick="dkExportPdf()" class="px-2.5 py-2 bg-red-600 text-white rounded-xl text-xs font-bold shadow-md" title="Unduh rekap semua Danaku"><i class="fa-solid fa-file-pdf"></i> PDF</button><button onclick="dkFundForm()" class="px-3 py-2 bg-bri-blue text-white rounded-xl text-xs font-bold shadow-md"><i class="fa-solid fa-plus"></i> Danaku</button></div>
                 </div>
                 <div id="dkList" class="space-y-3"></div>
+                <div id="dkTable"></div>
             </section>
 
             <section id="page-laporan" class="page-section hidden space-y-4">
@@ -2524,6 +2526,38 @@
             }
         }
 
+        async function deleteAccount() {
+            const name = state.currentAccount;
+            if (!name) return;
+            if (state.accounts.length <= 1) { alert('Tidak bisa menghapus: minimal harus ada satu akun.'); return; }
+            if (!initSupabaseClient()) { alert('Koneksi database belum siap! Akun tidak dihapus.'); return; }
+            const c = (arr) => arr.filter(x => x.account === name).length;
+            const rows = [['transaksi', c(state.transactions)], ['transfer', c(state.transfers)], ['aset', c(state.assets)], ['rancangan HPP', c(state.hppPlans)],
+                ['barang stok', c(state.inventoryItems)], ['pergerakan stok', c(state.inventoryMoves)], ['Danaku', c(state.danakuFunds)], ['pengeluaran Danaku', c(state.danakuExpenses)], ['periode tutup buku', c(state.closings)]]
+                .filter(r => r[1] > 0).map(r => `- ${r[1]} ${r[0]}`).join('\n');
+            const typed = prompt(`HAPUS AKUN "${name}"?\n\nSeluruh data akun ini akan dihapus PERMANEN dan tidak bisa dikembalikan:\n${rows || '- (tidak ada data)'}\n\nKetik nama akun persis untuk konfirmasi:`);
+            if (typed === null) return;
+            if (typed.trim() !== name) { alert('Nama akun tidak cocok. Penghapusan dibatalkan.'); return; }
+            // Urutan: kunci periode dulu, lalu data turunan, terakhir akun itu sendiri
+            const steps = [['period_closings', 1], ['pos_sales', 1], ['danaku_expenses', 1], ['danaku_funds', 1], ['inventory_moves', 1], ['inventory_items', 1],
+                ['hpp_plans', 0], ['assets', 0], ['transfers', 0], ['transactions', 0]];
+            for (const [t, optional] of steps) {
+                const { error } = await _supabase.from(t).delete().eq('account', name);
+                if (error && !(optional && /does not exist|schema cache|relation/i.test(error.message))) {
+                    alert(`Penghapusan berhenti pada tabel ${t}: ${error.message}\n\nSebagian data mungkin sudah terhapus. Data akan disegarkan dari database.`);
+                    await syncNow(true); return;
+                }
+            }
+            const { error: accErr } = await _supabase.from('accounts').delete().eq('name', name);
+            if (accErr) { alert('Data akun terhapus, tetapi akunnya gagal dihapus: ' + accErr.message); await syncNow(true); return; }
+            if (typeof editingHppId !== 'undefined' && editingHppId !== null) resetHppForm();
+            ['transactions', 'transfers', 'assets', 'hppPlans', 'inventoryItems', 'inventoryMoves', 'danakuFunds', 'danakuExpenses', 'closings'].forEach(k => { state[k] = state[k].filter(x => x.account !== name); });
+            state.accounts = state.accounts.filter(a => a !== name);
+            delete state.optionsPerAccount[name];
+            state.currentAccount = state.accounts[0];
+            renderAccountSelector(); ensureAccountOptions(); renderDropdownOptions(); refreshCurrentPage();
+        }
+
         function ensureAccountOptions() {
             state.accounts.forEach(acc => {
                 if (!state.optionsPerAccount[acc]) {
@@ -3736,9 +3770,46 @@
         const DK_HEAD = (t) => `<div class="flex justify-between items-center"><h3 class="font-bold text-sm text-bri-blue dark:text-blue-400">${t}</h3><button onclick="dkClose()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>`;
         let _dkBack = null;
 
+        let dkTblFilter = 'all';
+        function renderDanakuTable() {
+            const box = document.getElementById('dkTable'); if (!box) return;
+            const all = state.danakuFunds.filter(f => f.account === state.currentAccount).sort((a, b) => a.id - b.id);
+            if (state.danakuMissing || !all.length) { box.innerHTML = ''; return; }
+            if (dkTblFilter !== 'all' && !all.some(f => String(f.id) === String(dkTblFilter))) dkTblFilter = 'all';
+            const funds = dkTblFilter === 'all' ? all : all.filter(f => String(f.id) === String(dkTblFilter));
+            const th = 'px-3 py-2 text-left font-semibold bg-bri-blue text-white sticky top-0 z-10 whitespace-nowrap';
+            let grand = 0, body = '';
+            funds.forEach(f => {
+                const ex = state.danakuExpenses.filter(e => e.fundId === f.id).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id);
+                const sp = ex.reduce((t, e) => t + e.amount, 0); grand += sp;
+                const act = f.status === 'active';
+                body += `<tr class="bg-blue-50 dark:bg-gray-700"><td colspan="7" class="px-3 py-2">
+                    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                        <div><span class="font-extrabold text-bri-blue dark:text-blue-300">${esc(f.name)}</span> <span class="px-1.5 py-0.5 rounded-md text-[10px] font-bold ${dkExt(f) ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">${esc(dkSrcLabel(f))}</span>${act ? '' : ' <span class="text-[10px] text-gray-400">(selesai)</span>'}</div>
+                        <div class="text-[11px] text-gray-600 dark:text-gray-300">${dkExt(f) ? 'Dana' : 'Pagu'} <b>${f.budget > 0 ? formatRp(f.budget) : '-'}</b> &bull; Terpakai <b class="text-red-600">${formatRp(sp)}</b> &bull; Sisa <b class="${f.budget > 0 && sp > f.budget ? 'text-red-600' : 'text-green-600'}">${f.budget > 0 ? formatRp(f.budget - sp) : '-'}</b> &bull; ${ex.length} transaksi
+                            ${act ? `<button onclick="dkExpForm(${f.id})" class="ml-2 px-2 py-0.5 bg-bri-orange text-white rounded-md font-bold">+ Tambah</button>` : ''}</div></div></td></tr>`;
+                body += ex.map((e, i) => `<tr class="border-t border-gray-100 dark:border-gray-700 ${i % 2 ? 'bg-gray-50/60 dark:bg-gray-700/30' : ''}">
+                    <td class="px-3 py-2">${i + 1}</td><td class="px-3 py-2 whitespace-nowrap">${dkDate(e.date)}</td><td class="px-3 py-2 whitespace-nowrap text-gray-500">${txTime(e)}</td>
+                    <td class="px-3 py-2 font-semibold min-w-[180px]">${esc(e.desc)}</td><td class="px-3 py-2 min-w-[100px]">${e.recipient ? esc(e.recipient) : '<span class="text-gray-300">-</span>'}</td>
+                    <td class="px-3 py-2 text-right font-bold text-red-600 whitespace-nowrap">${formatRp(e.amount)}</td>
+                    <td class="px-3 py-2 text-center whitespace-nowrap"><button onclick="dkExpForm(${f.id}, ${e.id})" class="text-blue-500 mr-2" title="Edit"><i class="fa-solid fa-pen"></i></button><button onclick="dkDelExp(${e.id})" class="text-red-400" title="Hapus"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')
+                    || '<tr><td colspan="7" class="px-3 py-3 text-center text-gray-400">Belum ada pengeluaran.</td></tr>';
+                if (ex.length > 1) body += `<tr class="border-t border-gray-200 dark:border-gray-600"><td colspan="5" class="px-3 py-1.5 text-right text-gray-500 font-semibold">Subtotal ${esc(f.name)}</td><td class="px-3 py-1.5 text-right font-bold whitespace-nowrap">${formatRp(sp)}</td><td></td></tr>`;
+            });
+            box.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div class="flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-100 dark:border-gray-700">
+                    <h4 class="text-xs font-bold"><i class="fa-solid fa-table-list text-bri-blue"></i> Rekap &amp; Rincian Penggunaan</h4>
+                    <select onchange="dkTblFilter=this.value;renderDanakuTable()" class="p-1.5 text-[11px] font-semibold bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg outline-none">
+                        <option value="all">Semua Danaku</option>${all.map(f => `<option value="${f.id}" ${String(f.id) === String(dkTblFilter) ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></div>
+                <div class="overflow-auto max-h-[60vh]"><table class="w-full min-w-[680px] text-[11px] border-separate border-spacing-0">
+                    <thead><tr><th class="${th} w-10">No</th><th class="${th}">Tanggal</th><th class="${th}">Jam</th><th class="${th}">Keterangan</th><th class="${th}">Penerima</th><th class="${th} text-right">Jumlah</th><th class="${th} text-center w-20">Aksi</th></tr></thead>
+                    <tbody>${body}</tbody>
+                    <tfoot><tr><td colspan="5" class="px-3 py-2 text-right font-bold bg-blue-50 dark:bg-gray-700 sticky bottom-0">TOTAL TERPAKAI${dkTblFilter === 'all' ? ' (SEMUA DANAKU)' : ''}</td><td class="px-3 py-2 text-right font-extrabold text-red-600 bg-blue-50 dark:bg-gray-700 sticky bottom-0 whitespace-nowrap">${formatRp(grand)}</td><td class="bg-blue-50 dark:bg-gray-700 sticky bottom-0"></td></tr></tfoot></table></div></div>`;
+        }
+
         function renderDanakuPage() {
             const box = document.getElementById('dkList'); if (!box) return;
-            if (state.danakuMissing) { box.innerHTML = dkWarn(); return; }
+            if (state.danakuMissing) { box.innerHTML = dkWarn(); renderDanakuTable(); return; }
             const fs = state.danakuFunds.filter(f => f.account === state.currentAccount)
                 .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || b.id - a.id);
             box.innerHTML = fs.map(f => {
@@ -3761,6 +3832,7 @@
                         <button onclick="dkToggle(${f.id})" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl">${act ? 'Selesaikan' : 'Aktifkan lagi'}</button>
                         <button onclick="dkDelFund(${f.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl"><i class="fa-solid fa-trash"></i></button></div></div>`;
             }).join('') || '<div class="text-center text-gray-400 text-xs py-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">Belum ada Danaku. Tekan <b>+ Danaku</b> untuk membuat dana kepanitiaan atau agenda.</div>';
+            renderDanakuTable();
         }
 
         // ---------- Buat / edit Danaku ----------
@@ -3818,7 +3890,7 @@
         function dkExpForm(fundId, expId, fromDetail) {
             const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
             const e = expId ? state.danakuExpenses.find(x => x.id === expId) : null;
-            _dkBack = (fromDetail || !!e) ? fundId : null;
+            _dkBack = fromDetail ? fundId : null;
             const sp = dkSpent(f.id) - (e ? e.amount : 0);
             const where = dkExt(f)
                 ? `<div>Sumber: <b>${esc(dkSrcLabel(f))}</b></div><div class="text-purple-700">Tidak dicatat di halaman Pengeluaran dan tidak memotong kas.</div>`
@@ -3905,11 +3977,11 @@
                     <td class="p-2">${i + 1}</td><td class="p-2 whitespace-nowrap">${dkDate(e.date)}</td><td class="p-2 whitespace-nowrap text-gray-500">${txTime(e)}</td>
                     <td class="p-2 font-semibold">${esc(e.desc)}</td><td class="p-2">${e.recipient ? esc(e.recipient) : '<span class="text-gray-300">-</span>'}</td>
                     <td class="p-2 text-right font-bold text-red-600 whitespace-nowrap">${formatRp(e.amount)}</td>
-                    <td class="p-2 text-center whitespace-nowrap"><button onclick="dkExpForm(${fundId}, ${e.id}, true)" class="text-blue-500 mr-2" title="Edit"><i class="fa-solid fa-pen"></i></button><button onclick="dkDelExp(${e.id})" class="text-red-400" title="Hapus"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')
+                    <td class="p-2 text-center whitespace-nowrap"><button onclick="dkExpForm(${fundId}, ${e.id}, true)" class="text-blue-500 mr-2" title="Edit"><i class="fa-solid fa-pen"></i></button><button onclick="dkDelExp(${e.id}, true)" class="text-red-400" title="Hapus"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')
                     || '<tr><td colspan="7" class="p-6 text-center text-gray-400">Belum ada pengeluaran.</td></tr>'}</tbody>
                 <tfoot><tr class="bg-blue-50 dark:bg-gray-700 font-bold border-t-2 border-bri-blue"><td colspan="5" class="p-2 text-right">TOTAL TERPAKAI</td><td class="p-2 text-right text-red-600">${formatRp(sp)}</td><td></td></tr></tfoot></table></div>`, true);
         }
-        async function dkDelExp(id) {
+        async function dkDelExp(id, fromDetail) {
             const e = state.danakuExpenses.find(x => x.id === id); if (!e) return;
             const f = state.danakuFunds.find(x => x.id === e.fundId);
             if (guardClosed(e.date)) return;
@@ -3922,7 +3994,7 @@
             const r2 = await _supabase.from('danaku_expenses').delete().eq('id', id);
             if (r2.error) { alert('Gagal menghapus: ' + r2.error.message); return; }
             state.danakuExpenses = state.danakuExpenses.filter(x => x.id !== id);
-            renderDanakuPage(); if (f) dkDetail(f.id);
+            renderDanakuPage(); if (f && fromDetail) dkDetail(f.id);
         }
         async function dkToggle(id) {
             const f = state.danakuFunds.find(x => x.id === id); if (!f) return;
