@@ -755,7 +755,7 @@
             <section id="page-danaku" class="page-section hidden space-y-4">
                 <div class="flex justify-between items-start gap-2">
                     <div><h2 class="text-lg font-bold">Danaku</h2><p class="text-xs text-gray-500 dark:text-gray-400">Catat pengeluaran kepanitiaan atau agenda. Uang diambil dari kas yang dipilih dan otomatis masuk ke Pengeluaran.</p></div>
-                    <button onclick="dkFundForm()" class="px-3 py-2 bg-bri-blue text-white rounded-xl text-xs font-bold shadow-md"><i class="fa-solid fa-plus"></i> Danaku</button>
+                    <div class="flex flex-wrap gap-1.5 justify-end"><button onclick="dkExportExcel()" class="px-2.5 py-2 bg-green-600 text-white rounded-xl text-xs font-bold shadow-md" title="Unduh rekap semua Danaku"><i class="fa-solid fa-file-excel"></i> Excel</button><button onclick="dkExportPdf()" class="px-2.5 py-2 bg-red-600 text-white rounded-xl text-xs font-bold shadow-md" title="Unduh rekap semua Danaku"><i class="fa-solid fa-file-pdf"></i> PDF</button><button onclick="dkFundForm()" class="px-3 py-2 bg-bri-blue text-white rounded-xl text-xs font-bold shadow-md"><i class="fa-solid fa-plus"></i> Danaku</button></div>
                 </div>
                 <div id="dkList" class="space-y-3"></div>
             </section>
@@ -3713,12 +3713,16 @@
         }
 
         // ==========================================
-        // DANAKU (dana kepanitiaan / agenda)
+        // DANAKU (dana kepanitiaan / agenda): sumber Kas DCC atau Dana Luar Kas
         // ==========================================
-        function dkMapFund(f) { return { id: f.id, account: f.account, name: f.name, budget: Number(f.budget || 0), sourceCash: f.source_cash, note: f.note || '', status: f.status || 'active' }; }
+        function dkMapFund(f) { return { id: f.id, account: f.account, name: f.name, budget: Number(f.budget || 0), sourceType: f.source_type || 'cash', sourceCash: f.source_cash || '', externalSource: f.external_source || '', note: f.note || '', status: f.status || 'active' }; }
+        const dkExt = f => f.sourceType === 'external';
+        const dkSrcLabel = f => dkExt(f) ? 'Dana luar kas' + (f.externalSource ? ': ' + f.externalSource : '') : 'Kas: ' + f.sourceCash;
         const dkV = id => document.getElementById(id).value;
-        function dkWarn() { return '<div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs"><b>Tabel Danaku belum dibuat.</b> Jalankan <code>migrasi_danaku_penerima.sql</code> di Supabase (SQL Editor), lalu muat ulang aplikasi.</div>'; }
-        function dkModal(html) { document.getElementById('dkHost').innerHTML = `<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"><div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-5 space-y-3 my-auto text-xs">${html}</div></div>`; }
+        const dkDate = d => String(d).split('-').reverse().join('/');
+        function dkMig(msg) { return /source_type|external_source|recipient/.test(msg || '') ? '\n\nJalankan migrasi_danaku_penerima.sql lalu migrasi_danaku_luar_kas.sql di Supabase terlebih dahulu.' : ''; }
+        function dkWarn() { return '<div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs"><b>Tabel Danaku belum dibuat.</b> Jalankan <code>migrasi_danaku_penerima.sql</code> dan <code>migrasi_danaku_luar_kas.sql</code> di Supabase (SQL Editor), lalu muat ulang aplikasi.</div>'; }
+        function dkModal(html, wide) { document.getElementById('dkHost').innerHTML = `<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"><div class="bg-white dark:bg-gray-800 w-full ${wide ? 'max-w-3xl' : 'max-w-md'} rounded-2xl shadow-xl p-5 space-y-3 my-auto text-xs">${html}</div></div>`; }
         function dkClose() { document.getElementById('dkHost').innerHTML = ''; }
         function dkSpent(id) { return state.danakuExpenses.filter(e => e.fundId === id).reduce((a, e) => a + e.amount, 0); }
         function dkKasSaldo(acc, name) {
@@ -3730,6 +3734,7 @@
         const DK_IN = 'class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none"';
         const DK_LB = 'class="block font-semibold text-gray-500 mb-1 uppercase text-[10px]"';
         const DK_HEAD = (t) => `<div class="flex justify-between items-center"><h3 class="font-bold text-sm text-bri-blue dark:text-blue-400">${t}</h3><button onclick="dkClose()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>`;
+        let _dkBack = null;
 
         function renderDanakuPage() {
             const box = document.getElementById('dkList'); if (!box) return;
@@ -3738,104 +3743,177 @@
                 .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1) || b.id - a.id);
             box.innerHTML = fs.map(f => {
                 const sp = dkSpent(f.id), sisa = f.budget - sp, over = f.budget > 0 && sp > f.budget, pct = f.budget > 0 ? Math.min(100, sp / f.budget * 100) : 0;
-                const n = state.danakuExpenses.filter(e => e.fundId === f.id).length, act = f.status === 'active';
+                const n = state.danakuExpenses.filter(e => e.fundId === f.id).length, act = f.status === 'active', ext = dkExt(f);
                 return `<div class="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-2.5 ${act ? '' : 'opacity-75'}">
                     <div class="flex justify-between items-start gap-2"><div><div class="font-extrabold text-sm">${esc(f.name)}</div>
-                        <div class="text-[11px] text-gray-500">Kas sumber: <b>${esc(f.sourceCash)}</b>${f.note ? ' &bull; ' + esc(f.note) : ''}</div></div>
+                        <div class="text-[11px] text-gray-500"><span class="px-1.5 py-0.5 rounded-md font-bold ${ext ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">${esc(dkSrcLabel(f))}</span>${f.note ? ' &bull; ' + esc(f.note) : ''}</div>
+                        ${ext ? '<div class="text-[10px] text-gray-400 mt-0.5">Tidak dicatat di Pengeluaran dan tidak memotong kas.</div>' : ''}</div>
                         <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold ${act ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">${act ? 'Aktif' : 'Selesai'}</span></div>
                     <div class="grid grid-cols-3 gap-2 text-center text-xs">
-                        <div class="p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50"><div class="text-[10px] text-gray-400 font-semibold">PAGU</div><div class="font-bold">${f.budget > 0 ? formatRp(f.budget) : 'Tanpa pagu'}</div></div>
+                        <div class="p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50"><div class="text-[10px] text-gray-400 font-semibold">${ext ? 'DANA' : 'PAGU'}</div><div class="font-bold">${f.budget > 0 ? formatRp(f.budget) : 'Tanpa pagu'}</div></div>
                         <div class="p-2 rounded-xl bg-red-50 dark:bg-red-900/20"><div class="text-[10px] text-gray-400 font-semibold">TERPAKAI (${n})</div><div class="font-bold text-red-600">${formatRp(sp)}</div></div>
                         <div class="p-2 rounded-xl ${over ? 'bg-red-100' : 'bg-green-50 dark:bg-green-900/20'}"><div class="text-[10px] text-gray-400 font-semibold">SISA</div><div class="font-bold ${over ? 'text-red-600' : 'text-green-600'}">${f.budget > 0 ? formatRp(sisa) : '-'}</div></div></div>
                     ${f.budget > 0 ? `<div class="h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden"><div class="h-full ${over ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-green-500'}" style="width:${pct}%"></div></div>` : ''}
                     <div class="flex flex-wrap gap-2 text-[11px] font-bold">
                         ${act ? `<button onclick="dkExpForm(${f.id})" class="px-3 py-2 bg-bri-orange text-white rounded-xl"><i class="fa-solid fa-plus"></i> Pengeluaran</button>` : ''}
-                        <button onclick="dkDetail(${f.id})" class="px-3 py-2 bg-blue-50 text-blue-700 rounded-xl">Rincian</button>
+                        <button onclick="dkDetail(${f.id})" class="px-3 py-2 bg-blue-50 text-blue-700 rounded-xl"><i class="fa-solid fa-table-list"></i> Rincian</button>
+                        <button onclick="dkFundForm(${f.id})" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl"><i class="fa-solid fa-pen"></i> Edit</button>
                         <button onclick="dkToggle(${f.id})" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl">${act ? 'Selesaikan' : 'Aktifkan lagi'}</button>
                         <button onclick="dkDelFund(${f.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl"><i class="fa-solid fa-trash"></i></button></div></div>`;
             }).join('') || '<div class="text-center text-gray-400 text-xs py-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">Belum ada Danaku. Tekan <b>+ Danaku</b> untuk membuat dana kepanitiaan atau agenda.</div>';
         }
 
-        function dkFundForm() {
-            if (state.danakuMissing) { alert('Jalankan migrasi_danaku_penerima.sql di Supabase terlebih dahulu.'); return; }
-            const cashes = getCurrentAccountOptions().out.cashTypes;
-            dkModal(DK_HEAD('Buat Danaku Baru') + `<div class="space-y-2.5">
-                <div><label ${DK_LB}>Nama kepanitiaan / agenda</label><input id="dkName" placeholder="Misal: Panitia Maulid Nabi" ${DK_IN}></div>
-                <div><label ${DK_LB}>Pagu anggaran (Rp, opsional)</label><input type="number" id="dkBudget" min="0" placeholder="0" ${DK_IN}></div>
-                <div><label ${DK_LB}>Ambil uang dari kas</label><select id="dkCash" ${DK_IN}>${cashes.map(c => `<option>${esc(c)}</option>`).join('')}</select></div>
-                <div><label ${DK_LB}>Catatan (opsional)</label><input id="dkNote" ${DK_IN}></div></div>
-                <button onclick="dkSaveFund()" class="w-full py-3 bg-bri-blue text-white font-bold rounded-xl">Simpan Danaku</button>`);
+        // ---------- Buat / edit Danaku ----------
+        function dkToggleSrc() {
+            const ext = dkV('dkSrc') === 'external';
+            document.getElementById('dkCashWrap').classList.toggle('hidden', ext);
+            document.getElementById('dkExtWrap').classList.toggle('hidden', !ext);
+            document.getElementById('dkBudgetLbl').innerText = ext ? 'Dana tersedia / pagu (Rp, opsional)' : 'Pagu anggaran (Rp, opsional)';
         }
-        async function dkSaveFund() {
-            const name = dkV('dkName').trim(), cash = dkV('dkCash');
-            if (!name || !cash) { alert('Nama dan kas wajib diisi.'); return; }
+        function dkFundForm(id) {
+            if (state.danakuMissing) { alert('Jalankan migrasi_danaku_penerima.sql dan migrasi_danaku_luar_kas.sql di Supabase terlebih dahulu.'); return; }
+            const f = id ? state.danakuFunds.find(x => x.id === id) : null;
+            const has = f ? state.danakuExpenses.some(e => e.fundId === f.id) : false, ext = f ? dkExt(f) : false;
+            const cashes = [...new Set([...getCurrentAccountOptions().out.cashTypes, f && f.sourceCash].filter(Boolean))];
+            dkModal(DK_HEAD(f ? 'Edit Danaku' : 'Buat Danaku Baru') + `<div class="space-y-2.5">
+                <div><label ${DK_LB}>Nama kepanitiaan / agenda</label><input id="dkName" value="${esc(f ? f.name : '')}" placeholder="Misal: Seminar Nasional" ${DK_IN}></div>
+                <div><label ${DK_LB}>Sumber dana</label><select id="dkSrc" onchange="dkToggleSrc()" ${has ? 'disabled' : ''} ${DK_IN}>
+                    <option value="cash" ${ext ? '' : 'selected'}>Kas DCC (masuk ke catatan Pengeluaran)</option>
+                    <option value="external" ${ext ? 'selected' : ''}>Dana luar kas (tidak masuk Pengeluaran)</option></select>
+                    ${has ? '<div class="text-[10px] text-gray-400 mt-1">Jenis sumber tidak bisa diubah karena sudah ada pengeluaran.</div>' : ''}</div>
+                <div id="dkCashWrap" class="${ext ? 'hidden' : ''}"><label ${DK_LB}>Ambil uang dari kas</label><select id="dkCash" ${DK_IN}>${cashes.map(c => `<option ${f && c === f.sourceCash ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+                <div id="dkExtWrap" class="${ext ? '' : 'hidden'}"><label ${DK_LB}>Asal dana luar kas</label><input id="dkExtSrc" value="${esc(f ? f.externalSource : '')}" placeholder="Misal: Iuran santri" ${DK_IN}></div>
+                <div><label ${DK_LB} id="dkBudgetLbl">${ext ? 'Dana tersedia / pagu (Rp, opsional)' : 'Pagu anggaran (Rp, opsional)'}</label><input type="number" id="dkBudget" min="0" value="${f && f.budget ? f.budget : ''}" placeholder="0" ${DK_IN}></div>
+                <div><label ${DK_LB}>Catatan (opsional)</label><input id="dkNote" value="${esc(f ? f.note : '')}" ${DK_IN}></div></div>
+                <button onclick="dkSaveFund(${f ? f.id : 0})" class="w-full py-3 bg-bri-blue text-white font-bold rounded-xl">${f ? 'Simpan Perubahan' : 'Simpan Danaku'}</button>`);
+        }
+        async function dkSaveFund(id) {
+            const name = dkV('dkName').trim(), src = dkV('dkSrc'), ext = src === 'external';
+            const cash = ext ? '' : dkV('dkCash'), extSrc = ext ? dkV('dkExtSrc').trim() : '', budget = parseFloat(dkV('dkBudget')) || 0, note = dkV('dkNote').trim();
+            if (!name || (!ext && !cash)) { alert('Nama dan sumber dana wajib diisi.'); return; }
             if (!initSupabaseClient()) { alert('Koneksi database belum siap!'); return; }
-            const { data, error } = await _supabase.from('danaku_funds').insert([{ account: state.currentAccount, name, budget: parseFloat(dkV('dkBudget')) || 0, source_cash: cash, note: dkV('dkNote').trim(), status: 'active' }]).select();
-            if (error || !data || !data.length) { alert('Gagal menyimpan Danaku: ' + (error ? error.message : 'tidak ada respons')); return; }
-            state.danakuFunds.push(dkMapFund(data[0])); dkClose(); renderDanakuPage();
-        }
-
-        function dkExpForm(fundId) {
-            const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
-            const sp = dkSpent(f.id), saldo = dkKasSaldo(f.account, f.sourceCash);
-            dkModal(DK_HEAD('Pengeluaran: ' + esc(f.name)) + `<div class="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-[11px] space-y-0.5">
-                <div>Diambil dari kas: <b>${esc(f.sourceCash)}</b> (saldo ${formatRp(saldo)})</div>
-                ${f.budget > 0 ? `<div>Sisa pagu: <b>${formatRp(f.budget - sp)}</b></div>` : ''}</div>
-                <div class="space-y-2.5">
-                <div><label ${DK_LB}>Tanggal</label><input type="date" id="dkDate" value="${getFormattedDate(0)}" ${DK_IN}></div>
-                <div><label ${DK_LB}>Keterangan</label><input id="dkDesc" placeholder="Misal: Konsumsi rapat" ${DK_IN}></div>
-                <div><label ${DK_LB}>Jumlah (Rp)</label><input type="number" id="dkAmt" min="1" placeholder="0" ${DK_IN}></div>
-                <div><label ${DK_LB}>Nama penerima (opsional)</label><input id="dkRec" ${DK_IN}></div></div>
-                <button onclick="dkSaveExp(${f.id})" class="w-full py-3 bg-bri-orange text-white font-bold rounded-xl">Simpan &amp; Catat ke Pengeluaran</button>`);
-        }
-        async function dkSaveExp(fundId) {
-            const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
-            const date = dkV('dkDate'), desc = dkV('dkDesc').trim(), amount = parseFloat(dkV('dkAmt')), recipient = dkV('dkRec').trim();
-            if (!date || !desc || !(amount > 0)) { alert('Tanggal, keterangan, dan jumlah wajib diisi.'); return; }
-            if (guardClosed(date)) return;
-            if (!initSupabaseClient()) { alert('Koneksi database belum siap!'); return; }
-            const sp = dkSpent(f.id), saldo = dkKasSaldo(f.account, f.sourceCash);
-            let w = '';
-            if (f.budget > 0 && sp + amount > f.budget) w += `Pengeluaran melebihi pagu (lebih ${formatRp(sp + amount - f.budget)}).\n`;
-            if (amount > saldo) w += `Saldo kas ${f.sourceCash} (${formatRp(saldo)}) tidak cukup, saldo akan minus.\n`;
-            if (w && !confirm(w + '\nLanjutkan?')) return;
-            // pastikan "Danaku" ada sebagai jenis pengeluaran
-            const o = getCurrentAccountOptions();
-            if (!o.out.categories.includes('Danaku')) {
-                o.out.categories.push('Danaku');
-                await _supabase.from('accounts').upsert([{ name: f.account, options: o }], { onConflict: 'name' });
-                renderDropdownOptions();
-            }
-            let txId = null;
-            try {
-                const a = await _supabase.from('transactions').insert([{ account: f.account, type: 'out', date, description: '[' + f.name + '] ' + desc, qty: 1, category: 'Danaku', cash_type: f.sourceCash, amount, ...(recipient ? { recipient } : {}) }]).select();
-                if (a.error || !a.data || !a.data.length) throw new Error(a.error ? a.error.message : 'database tidak merespons');
-                const t = a.data[0]; txId = t.id;
-                const b = await _supabase.from('danaku_expenses').insert([{ fund_id: f.id, account: f.account, date, description: desc, amount, recipient: recipient || null, transaction_id: txId }]).select();
-                if (b.error || !b.data || !b.data.length) throw new Error(b.error ? b.error.message : 'database tidak merespons');
-                state.transactions.push({ id: t.id, account: f.account, type: 'out', date, desc: t.description, qty: 1, category: 'Danaku', cashType: f.sourceCash, amount, recipient, createdAt: t.created_at });
-                const e = b.data[0];
-                state.danakuExpenses.push({ id: e.id, fundId: f.id, account: f.account, date, desc, amount, recipient, transactionId: txId, createdAt: e.created_at });
-            } catch (err) {
-                if (txId) await _supabase.from('transactions').delete().eq('id', txId);
-                alert('Gagal menyimpan: ' + err.message + (/recipient/.test(err.message) ? '\n\nJalankan migrasi_danaku_penerima.sql di Supabase terlebih dahulu.' : ''));
-                return;
+            const row = { name, budget, source_type: src, source_cash: ext ? null : cash, external_source: ext ? (extSrc || null) : null, note };
+            if (id) {
+                const f = state.danakuFunds.find(x => x.id === id); if (!f) return;
+                const exps = state.danakuExpenses.filter(e => e.fundId === id), ids = exps.map(e => e.transactionId).filter(Boolean);
+                if (!ext && f.sourceCash && cash !== f.sourceCash && ids.length) {
+                    for (const e of exps) if (guardClosed(e.date)) return;
+                    if (!confirm(`Mengganti kas memindahkan ${ids.length} catatan pengeluaran ke kas "${cash}". Lanjutkan?`)) return;
+                    const r = await _supabase.from('transactions').update({ cash_type: cash }).in('id', ids);
+                    if (r.error) { alert('Gagal memindahkan kas: ' + r.error.message); return; }
+                    state.transactions.forEach(t => { if (ids.includes(t.id)) t.cashType = cash; });
+                }
+                const { error } = await _supabase.from('danaku_funds').update(row).eq('id', id);
+                if (error) { alert('Gagal menyimpan: ' + error.message + dkMig(error.message)); return; }
+                Object.assign(f, { name, budget, sourceType: src, sourceCash: cash, externalSource: extSrc, note });
+            } else {
+                const { data, error } = await _supabase.from('danaku_funds').insert([{ ...row, account: state.currentAccount, status: 'active' }]).select();
+                if (error || !data || !data.length) { const m = error ? error.message : 'tidak ada respons'; alert('Gagal menyimpan Danaku: ' + m + dkMig(m)); return; }
+                state.danakuFunds.push(dkMapFund(data[0]));
             }
             dkClose(); renderDanakuPage();
         }
 
+        // ---------- Tambah / edit pengeluaran ----------
+        function dkExpForm(fundId, expId, fromDetail) {
+            const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
+            const e = expId ? state.danakuExpenses.find(x => x.id === expId) : null;
+            _dkBack = (fromDetail || !!e) ? fundId : null;
+            const sp = dkSpent(f.id) - (e ? e.amount : 0);
+            const where = dkExt(f)
+                ? `<div>Sumber: <b>${esc(dkSrcLabel(f))}</b></div><div class="text-purple-700">Tidak dicatat di halaman Pengeluaran dan tidak memotong kas.</div>`
+                : `<div>Diambil dari kas: <b>${esc(f.sourceCash)}</b> (saldo ${formatRp(dkKasSaldo(f.account, f.sourceCash) + (e ? e.amount : 0))})</div>`;
+            dkModal(DK_HEAD((e ? 'Edit Pengeluaran: ' : 'Pengeluaran: ') + esc(f.name)) + `<div class="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-[11px] space-y-0.5">${where}
+                ${f.budget > 0 ? `<div>Sisa ${dkExt(f) ? 'dana' : 'pagu'}: <b>${formatRp(f.budget - sp)}</b></div>` : ''}</div>
+                <div class="space-y-2.5">
+                <div><label ${DK_LB}>Tanggal</label><input type="date" id="dkDate" value="${e ? e.date : getFormattedDate(0)}" ${DK_IN}></div>
+                <div><label ${DK_LB}>Keterangan</label><input id="dkDesc" value="${esc(e ? e.desc : '')}" placeholder="Misal: Konsumsi rapat" ${DK_IN}></div>
+                <div><label ${DK_LB}>Jumlah (Rp)</label><input type="number" id="dkAmt" min="1" value="${e ? e.amount : ''}" placeholder="0" ${DK_IN}></div>
+                <div><label ${DK_LB}>Nama penerima (opsional)</label><input id="dkRec" value="${esc(e ? e.recipient : '')}" ${DK_IN}></div></div>
+                <button onclick="dkSaveExp(${f.id}, ${e ? e.id : 0})" class="w-full py-3 bg-bri-orange text-white font-bold rounded-xl">${e ? 'Simpan Perubahan' : (dkExt(f) ? 'Simpan Pengeluaran' : 'Simpan &amp; Catat ke Pengeluaran')}</button>`);
+        }
+        async function dkSaveExp(fundId, expId) {
+            const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
+            const e = expId ? state.danakuExpenses.find(x => x.id === expId) : null;
+            const date = dkV('dkDate'), desc = dkV('dkDesc').trim(), amount = parseFloat(dkV('dkAmt')), recipient = dkV('dkRec').trim();
+            if (!date || !desc || !(amount > 0)) { alert('Tanggal, keterangan, dan jumlah wajib diisi.'); return; }
+            if (guardClosed(date) || (e && guardClosed(e.date))) return;
+            if (!initSupabaseClient()) { alert('Koneksi database belum siap!'); return; }
+            const ext = dkExt(f), sp = dkSpent(f.id) - (e ? e.amount : 0), saldo = ext ? 0 : dkKasSaldo(f.account, f.sourceCash) + (e ? e.amount : 0);
+            let w = '';
+            if (f.budget > 0 && sp + amount > f.budget) w += `Pengeluaran melebihi ${ext ? 'dana' : 'pagu'} (lebih ${formatRp(sp + amount - f.budget)}).\n`;
+            if (!ext && amount > saldo) w += `Saldo kas ${f.sourceCash} (${formatRp(saldo)}) tidak cukup, saldo akan minus.\n`;
+            if (w && !confirm(w + '\nLanjutkan?')) return;
+            const fullDesc = '[' + f.name + '] ' + desc;
+            try {
+                if (e) {
+                    let oldTx = null;
+                    if (!ext && e.transactionId) {
+                        const t = state.transactions.find(x => x.id === e.transactionId);
+                        oldTx = t ? { date: t.date, description: t.desc, amount: t.amount, recipient: t.recipient || null } : null;
+                        const upd = { date, description: fullDesc, amount }; if (recipient || e.recipient) upd.recipient = recipient || null;
+                        const r = await _supabase.from('transactions').update(upd).eq('id', e.transactionId);
+                        if (r.error) throw new Error(r.error.message);
+                        if (t) { t.date = date; t.desc = fullDesc; t.amount = amount; t.recipient = recipient; }
+                    }
+                    const r2 = await _supabase.from('danaku_expenses').update({ date, description: desc, amount, recipient: recipient || null }).eq('id', e.id);
+                    if (r2.error) {
+                        if (oldTx) { await _supabase.from('transactions').update(oldTx).eq('id', e.transactionId); const t = state.transactions.find(x => x.id === e.transactionId); if (t) { t.date = oldTx.date; t.desc = oldTx.description; t.amount = oldTx.amount; t.recipient = oldTx.recipient || ''; } }
+                        throw new Error(r2.error.message);
+                    }
+                    Object.assign(e, { date, desc, amount, recipient });
+                } else {
+                    let txId = null, tx = null;
+                    try {
+                        if (!ext) {
+                            const o = getCurrentAccountOptions();
+                            if (!o.out.categories.includes('Danaku')) {
+                                o.out.categories.push('Danaku');
+                                await _supabase.from('accounts').upsert([{ name: f.account, options: o }], { onConflict: 'name' });
+                                renderDropdownOptions();
+                            }
+                            const a = await _supabase.from('transactions').insert([{ account: f.account, type: 'out', date, description: fullDesc, qty: 1, category: 'Danaku', cash_type: f.sourceCash, amount, ...(recipient ? { recipient } : {}) }]).select();
+                            if (a.error || !a.data || !a.data.length) throw new Error(a.error ? a.error.message : 'database tidak merespons');
+                            tx = a.data[0]; txId = tx.id;
+                        }
+                        const b = await _supabase.from('danaku_expenses').insert([{ fund_id: f.id, account: f.account, date, description: desc, amount, recipient: recipient || null, transaction_id: txId }]).select();
+                        if (b.error || !b.data || !b.data.length) throw new Error(b.error ? b.error.message : 'database tidak merespons');
+                        if (tx) state.transactions.push({ id: tx.id, account: f.account, type: 'out', date, desc: fullDesc, qty: 1, category: 'Danaku', cashType: f.sourceCash, amount, recipient, createdAt: tx.created_at });
+                        state.danakuExpenses.push({ id: b.data[0].id, fundId: f.id, account: f.account, date, desc, amount, recipient, transactionId: txId, createdAt: b.data[0].created_at });
+                    } catch (err) { if (txId) await _supabase.from('transactions').delete().eq('id', txId); throw err; }
+                }
+            } catch (err) { alert('Gagal menyimpan: ' + err.message + dkMig(err.message)); return; }
+            const back = _dkBack; dkClose(); renderDanakuPage();
+            if (back) dkDetail(back);
+        }
+
+        // ---------- Rincian (tabel) + edit/hapus per baris + unduh ----------
         function dkDetail(fundId) {
             const f = state.danakuFunds.find(x => x.id === fundId); if (!f) return;
-            const ex = state.danakuExpenses.filter(e => e.fundId === fundId).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
-            dkModal(DK_HEAD('Rincian: ' + esc(f.name)) + `<div class="max-h-[55vh] overflow-y-auto space-y-1.5">${ex.map(e => `<div class="flex justify-between items-start gap-2 p-2 rounded-xl bg-gray-50 dark:bg-gray-700/50">
-                <div><div class="font-semibold">${esc(e.desc)}</div><div class="text-[10px] text-gray-500">${esc(e.date)} ${txTime(e)}${e.recipient ? ' &bull; ' + esc(e.recipient) : ''}</div></div>
-                <div class="text-right whitespace-nowrap"><div class="font-bold text-red-600">${formatRp(e.amount)}</div><button onclick="dkDelExp(${e.id})" class="text-red-400 text-[10px]"><i class="fa-solid fa-trash"></i> hapus</button></div></div>`).join('') || '<div class="text-center text-gray-400 py-6">Belum ada pengeluaran.</div>'}</div>
-                <div class="flex justify-between font-bold pt-1 border-t border-gray-100 dark:border-gray-700"><span>Total terpakai</span><span>${formatRp(dkSpent(fundId))}</span></div>`);
+            const ex = state.danakuExpenses.filter(e => e.fundId === fundId).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id);
+            const sp = dkSpent(fundId), th = 'p-2 text-left font-semibold', act = f.status === 'active';
+            dkModal(DK_HEAD('Rincian: ' + esc(f.name)) + `
+                <div class="flex flex-wrap gap-1.5 items-center justify-between">
+                    <div class="text-[11px] text-gray-500"><b>${esc(dkSrcLabel(f))}</b>${f.budget > 0 ? ' &bull; ' + (dkExt(f) ? 'Dana ' : 'Pagu ') + formatRp(f.budget) + ' &bull; Sisa <b>' + formatRp(f.budget - sp) + '</b>' : ''}</div>
+                    <div class="flex gap-1.5 text-[11px] font-bold">
+                        ${act ? `<button onclick="dkExpForm(${fundId}, 0, true)" class="px-2.5 py-1.5 bg-bri-orange text-white rounded-lg"><i class="fa-solid fa-plus"></i> Tambah</button>` : ''}
+                        <button onclick="dkExportExcel(${fundId})" class="px-2.5 py-1.5 bg-green-600 text-white rounded-lg"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                        <button onclick="dkExportPdf(${fundId})" class="px-2.5 py-1.5 bg-red-600 text-white rounded-lg"><i class="fa-solid fa-file-pdf"></i> PDF</button></div></div>
+                <div class="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700 max-h-[52vh] overflow-y-auto">
+                <table class="w-full text-[11px]"><thead class="bg-bri-blue text-white sticky top-0"><tr><th class="${th} w-8">No</th><th class="${th}">Tanggal</th><th class="${th}">Jam</th><th class="${th}">Keterangan</th><th class="${th}">Penerima</th><th class="${th} text-right">Jumlah</th><th class="${th} text-center w-16">Aksi</th></tr></thead>
+                <tbody>${ex.map((e, i) => `<tr class="border-t border-gray-100 dark:border-gray-700 ${i % 2 ? 'bg-gray-50/60 dark:bg-gray-700/30' : ''}">
+                    <td class="p-2">${i + 1}</td><td class="p-2 whitespace-nowrap">${dkDate(e.date)}</td><td class="p-2 whitespace-nowrap text-gray-500">${txTime(e)}</td>
+                    <td class="p-2 font-semibold">${esc(e.desc)}</td><td class="p-2">${e.recipient ? esc(e.recipient) : '<span class="text-gray-300">-</span>'}</td>
+                    <td class="p-2 text-right font-bold text-red-600 whitespace-nowrap">${formatRp(e.amount)}</td>
+                    <td class="p-2 text-center whitespace-nowrap"><button onclick="dkExpForm(${fundId}, ${e.id}, true)" class="text-blue-500 mr-2" title="Edit"><i class="fa-solid fa-pen"></i></button><button onclick="dkDelExp(${e.id})" class="text-red-400" title="Hapus"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')
+                    || '<tr><td colspan="7" class="p-6 text-center text-gray-400">Belum ada pengeluaran.</td></tr>'}</tbody>
+                <tfoot><tr class="bg-blue-50 dark:bg-gray-700 font-bold border-t-2 border-bri-blue"><td colspan="5" class="p-2 text-right">TOTAL TERPAKAI</td><td class="p-2 text-right text-red-600">${formatRp(sp)}</td><td></td></tr></tfoot></table></div>`, true);
         }
         async function dkDelExp(id) {
             const e = state.danakuExpenses.find(x => x.id === id); if (!e) return;
+            const f = state.danakuFunds.find(x => x.id === e.fundId);
             if (guardClosed(e.date)) return;
-            if (!confirm('Hapus pengeluaran ini beserta catatannya di menu Pengeluaran?')) return;
+            if (!confirm(e.transactionId ? 'Hapus pengeluaran ini beserta catatannya di menu Pengeluaran?' : 'Hapus pengeluaran ini?')) return;
             if (e.transactionId) {
                 const r = await _supabase.from('transactions').delete().eq('id', e.transactionId);
                 if (r.error) { alert('Gagal menghapus transaksi: ' + r.error.message); return; }
@@ -3844,7 +3922,7 @@
             const r2 = await _supabase.from('danaku_expenses').delete().eq('id', id);
             if (r2.error) { alert('Gagal menghapus: ' + r2.error.message); return; }
             state.danakuExpenses = state.danakuExpenses.filter(x => x.id !== id);
-            dkDetail(e.fundId); renderDanakuPage();
+            renderDanakuPage(); if (f) dkDetail(f.id);
         }
         async function dkToggle(id) {
             const f = state.danakuFunds.find(x => x.id === id); if (!f) return;
@@ -3854,11 +3932,173 @@
             f.status = st; renderDanakuPage();
         }
         async function dkDelFund(id) {
-            if (state.danakuExpenses.some(e => e.fundId === id)) { alert('Danaku ini sudah punya pengeluaran. Hapus pengeluarannya dulu lewat Rincian, atau pilih Selesaikan.'); return; }
-            if (!confirm('Hapus Danaku ini?')) return;
+            const f = state.danakuFunds.find(x => x.id === id); if (!f) return;
+            const exps = state.danakuExpenses.filter(e => e.fundId === id), ids = exps.map(e => e.transactionId).filter(Boolean);
+            for (const e of exps) if (guardClosed(e.date)) return;
+            if (!confirm(exps.length ? `Hapus Danaku "${f.name}" beserta ${exps.length} pengeluaran${ids.length ? ' dan ' + ids.length + ' catatannya di menu Pengeluaran' : ''}? Tindakan ini tidak bisa dibatalkan.` : `Hapus Danaku "${f.name}"?`)) return;
+            if (ids.length) {
+                const r = await _supabase.from('transactions').delete().in('id', ids);
+                if (r.error) { alert('Gagal menghapus transaksi: ' + r.error.message); return; }
+                state.transactions = state.transactions.filter(t => !ids.includes(t.id));
+            }
+            if (exps.length) {
+                const r2 = await _supabase.from('danaku_expenses').delete().eq('fund_id', id);
+                if (r2.error) { alert('Gagal menghapus pengeluaran: ' + r2.error.message); return; }
+                state.danakuExpenses = state.danakuExpenses.filter(e => e.fundId !== id);
+            }
             const { error } = await _supabase.from('danaku_funds').delete().eq('id', id);
             if (error) { alert('Gagal menghapus: ' + error.message); return; }
-            state.danakuFunds = state.danakuFunds.filter(f => f.id !== id); renderDanakuPage();
+            state.danakuFunds = state.danakuFunds.filter(x => x.id !== id); renderDanakuPage();
+        }
+
+        // ---------- Unduh Excel & PDF ----------
+        function dkExportData(fundId) {
+            const acc = state.currentAccount;
+            const funds = state.danakuFunds.filter(f => f.account === acc && (!fundId || f.id === fundId)).sort((a, b) => a.id - b.id).map(f => {
+                const exps = state.danakuExpenses.filter(e => e.fundId === f.id).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id);
+                const sp = exps.reduce((t, e) => t + e.amount, 0);
+                return { f, exps, sp, sisa: f.budget - sp };
+            });
+            return { acc, funds, now: new Date().toLocaleString('id-ID') };
+        }
+        const dkFile = (n) => String(n).replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'Danaku';
+
+        async function dkExportExcel(fundId) {
+            try {
+                if (!window.ExcelJS) throw new Error('Library Excel belum termuat. Periksa koneksi internet lalu coba lagi.');
+                const d = dkExportData(fundId);
+                if (!d.funds.length) { alert('Belum ada data Danaku untuk diunduh.'); return; }
+                const NAVY = 'FF00529C', DARK = 'FF002E66', ORANGE = 'FFF37021', LIGHT = 'FFF4F7FA', PALE = 'FFE6EFFA', LINE = 'FFD0D7E2', WHITE = 'FFFFFFFF';
+                const RP = '"Rp" #,##0;[Red]-"Rp" #,##0';
+                const solid = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+                const thin = { style: 'thin', color: { argb: LINE } }, box = { top: thin, left: thin, bottom: thin, right: thin };
+                const wb = new ExcelJS.Workbook(); wb.creator = 'Bendahara DCC'; wb.created = new Date();
+                const used = new Set();
+                const sheetName = n => { const b = String(n).replace(/[\\\/\?\*\[\]:]/g, ' ').trim().slice(0, 27) || 'Danaku'; let x = b, i = 2; while (used.has(x.toLowerCase())) x = b.slice(0, 24) + ' ' + (i++); used.add(x.toLowerCase()); return x; };
+                const build = (name, title, sub, info, heads, widths, aligns, rows, totalRow, money) => {
+                    const span = heads.length;
+                    const ws = wb.addWorksheet(sheetName(name), { views: [{ showGridLines: false }], pageSetup: { paperSize: 9, orientation: span > 6 ? 'landscape' : 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true } });
+                    ws.columns = widths.map(w => ({ width: w }));
+                    ws.headerFooter.oddFooter = '&L&8Sistem Keuangan Sektor DCC&R&8Halaman &P dari &N';
+                    let r = 1;
+                    const band = (text, font, fill, h) => { ws.mergeCells(r, 1, r, span); const c = ws.getCell(r, 1); c.value = text; c.font = font; c.fill = solid(fill); c.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: true }; ws.getRow(r).height = h; r++; };
+                    band(title, { size: 16, bold: true, color: { argb: WHITE } }, NAVY, 34);
+                    band(sub, { size: 10, bold: true, color: { argb: WHITE } }, DARK, 20);
+                    for (let c = 1; c <= span; c++) ws.getCell(r, c).fill = solid(ORANGE); ws.getRow(r).height = 4; r++;
+                    ws.getRow(r).height = 8; r++;
+                    info.forEach(([k, v]) => {
+                        ws.mergeCells(r, 1, r, 2); const a = ws.getCell(r, 1); a.value = k; a.font = { bold: true, size: 10, color: { argb: DARK } }; a.fill = solid(PALE); a.alignment = { vertical: 'middle', indent: 1 };
+                        ws.mergeCells(r, 3, r, span); const b = ws.getCell(r, 3); b.value = v; b.font = { size: 10 }; b.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                        ws.getRow(r).height = 18; r++;
+                    });
+                    if (info.length) { ws.getRow(r).height = 8; r++; }
+                    const hr = r;
+                    heads.forEach((h, i) => { const c = ws.getCell(r, i + 1); c.value = h; c.font = { bold: true, size: 10, color: { argb: WHITE } }; c.fill = solid(NAVY); c.border = box; c.alignment = { vertical: 'middle', horizontal: aligns[i] === 'right' ? 'right' : aligns[i] === 'center' ? 'center' : 'left', wrapText: true, indent: aligns[i] === 'left' ? 1 : 0 }; });
+                    ws.getRow(r).height = 24; r++;
+                    rows.forEach((row, ri) => {
+                        row.forEach((v, i) => { const c = ws.getCell(r, i + 1); c.value = v; c.font = { size: 10 }; c.border = box; if (ri % 2) c.fill = solid(LIGHT);
+                            c.alignment = { vertical: 'middle', horizontal: aligns[i] === 'right' ? 'right' : aligns[i] === 'center' ? 'center' : 'left', wrapText: true, indent: aligns[i] === 'left' ? 1 : 0 };
+                            if (money.includes(i) && typeof v === 'number') c.numFmt = RP; });
+                        r++;
+                    });
+                    if (totalRow) {
+                        totalRow.forEach((v, i) => { const c = ws.getCell(r, i + 1); c.value = v; c.font = { bold: true, size: 10, color: { argb: DARK } }; c.fill = solid(PALE); c.border = box;
+                            c.alignment = { vertical: 'middle', horizontal: aligns[i] === 'right' ? 'right' : 'left', indent: aligns[i] === 'left' ? 1 : 0 }; if (money.includes(i) && typeof v === 'number') c.numFmt = RP; });
+                        ws.getRow(r).height = 22; r++;
+                    }
+                    ws.views = [{ showGridLines: false, state: 'frozen', ySplit: hr }];
+                };
+                if (!fundId) {
+                    const tot = d.funds.reduce((a, x) => { a.p += x.f.budget; a.s += x.sp; return a; }, { p: 0, s: 0 });
+                    build('Ringkasan', 'LAPORAN DANAKU', `Akun: ${d.acc}   |   Dicetak: ${d.now}   |   ${d.funds.length} Danaku`, [],
+                        ['No', 'Nama Danaku', 'Sumber Dana', 'Pagu / Dana', 'Terpakai', 'Sisa', 'Transaksi', 'Status'], [6, 34, 32, 18, 18, 18, 11, 12], ['center', 'left', 'left', 'right', 'right', 'right', 'center', 'center'],
+                        d.funds.map((x, i) => [i + 1, x.f.name, dkSrcLabel(x.f), x.f.budget || '-', x.sp, x.f.budget > 0 ? x.sisa : '-', x.exps.length, x.f.status === 'active' ? 'Aktif' : 'Selesai']),
+                        ['', 'TOTAL', '', tot.p, tot.s, '', d.funds.reduce((a, x) => a + x.exps.length, 0), ''], [3, 4, 5]);
+                }
+                d.funds.forEach(x => {
+                    const f = x.f;
+                    build(f.name, 'RINCIAN DANAKU: ' + f.name.toUpperCase(), `Akun: ${d.acc}   |   Dicetak: ${d.now}`,
+                        [['Sumber Dana', dkSrcLabel(f)], [dkExt(f) ? 'Dana / Pagu' : 'Pagu', f.budget > 0 ? formatRp(f.budget) : 'Tanpa pagu'], ['Terpakai', formatRp(x.sp)], ['Sisa', f.budget > 0 ? formatRp(x.sisa) : '-'], ['Status', f.status === 'active' ? 'Aktif' : 'Selesai'], ['Catatan', f.note || '-']],
+                        ['No', 'Tanggal', 'Jam', 'Keterangan', 'Penerima', 'Jumlah (Rp)'], [6, 14, 11, 46, 26, 20], ['center', 'center', 'center', 'left', 'left', 'right'],
+                        x.exps.map((e, i) => [i + 1, dkDate(e.date), txTime(e), e.desc, e.recipient || '-', e.amount]),
+                        ['', '', '', 'TOTAL TERPAKAI', '', x.sp], [5]);
+                });
+                const buf = await wb.xlsx.writeBuffer();
+                tbSave(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Danaku_${dkFile(fundId ? d.funds[0].f.name : d.acc)}_${getFormattedDate(0)}.xlsx`);
+            } catch (err) { alert('Gagal membuat Excel: ' + err.message); }
+        }
+
+        function dkExportPdf(fundId) {
+            try {
+                if (!window.jspdf) throw new Error('Library PDF belum termuat. Periksa koneksi internet lalu coba lagi.');
+                const d = dkExportData(fundId);
+                if (!d.funds.length) { alert('Belum ada data Danaku untuk diunduh.'); return; }
+                const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+                const PW = 210, PH = 297, M = 14, NAVY = [0, 82, 156], ORANGE = [243, 112, 33], LIGHT = [244, 247, 250], PALE = [230, 239, 250], LINE = [208, 215, 226], INK = [31, 41, 55];
+                let y = 0, first = true;
+                const banner = (title, sub) => {
+                    if (!first) pdf.addPage(); first = false;
+                    pdf.setFillColor(...NAVY); pdf.rect(0, 0, PW, 27, 'F'); pdf.setFillColor(...ORANGE); pdf.rect(0, 27, PW, 1.6, 'F');
+                    pdf.setTextColor(255, 255, 255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15);
+                    pdf.text(pdf.splitTextToSize(title, PW - 2 * M)[0], M, 12);
+                    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.text(sub, M, 20); y = 36;
+                };
+                const kv = (rows) => {
+                    pdf.setFontSize(9);
+                    rows.forEach(([k, v]) => {
+                        pdf.setFont('helvetica', 'bold'); pdf.setTextColor(0, 46, 102); pdf.text(k, M, y);
+                        pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...INK); pdf.text(pdf.splitTextToSize(String(v), PW - 2 * M - 34), M + 34, y); y += 5.2;
+                    });
+                    y += 3;
+                };
+                const table = (cols, rows, total) => {
+                    const x0 = M, pad = 1.8, lh = 3.7;
+                    const head = () => {
+                        pdf.setFillColor(...NAVY); pdf.setDrawColor(...LINE); pdf.rect(x0, y, cols.reduce((a, c) => a + c.w, 0), 8, 'F');
+                        pdf.setTextColor(255, 255, 255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8.5);
+                        let x = x0; cols.forEach(c => { pdf.text(c.h, c.a === 'right' ? x + c.w - pad : c.a === 'center' ? x + c.w / 2 : x + pad, y + 5.3, { align: c.a || 'left' }); x += c.w; });
+                        y += 8;
+                    };
+                    const row = (cells, o) => {
+                        pdf.setFont('helvetica', o.bold ? 'bold' : 'normal'); pdf.setFontSize(8.5);
+                        const lines = cells.map((v, i) => pdf.splitTextToSize(String(v), cols[i].w - 2 * pad));
+                        const rh = Math.max(7, Math.max(...lines.map(l => l.length)) * lh + 3.2);
+                        if (y + rh > PH - 18) { pdf.addPage(); y = 16; head(); pdf.setFont('helvetica', o.bold ? 'bold' : 'normal'); pdf.setFontSize(8.5); }
+                        const W = cols.reduce((a, c) => a + c.w, 0);
+                        if (o.fill) { pdf.setFillColor(...o.fill); pdf.rect(x0, y, W, rh, 'F'); }
+                        pdf.setDrawColor(...LINE); pdf.setLineWidth(0.2); pdf.rect(x0, y, W, rh);
+                        let x = x0; pdf.setTextColor(...(o.color || INK));
+                        cols.forEach((c, i) => { if (i) pdf.line(x, y, x, y + rh); lines[i].forEach((t, li) => pdf.text(t, c.a === 'right' ? x + c.w - pad : c.a === 'center' ? x + c.w / 2 : x + pad, y + 4.9 + li * lh, { align: c.a || 'left' })); x += c.w; });
+                        y += rh;
+                    };
+                    head();
+                    rows.forEach((r, i) => row(r, { fill: i % 2 ? LIGHT : null }));
+                    if (!rows.length) row(cols.map((c, i) => i === 1 ? 'Belum ada data' : ''), { color: [150, 150, 150] });
+                    if (total) row(total, { bold: true, fill: PALE, color: [0, 46, 102] });
+                };
+                if (!fundId) {
+                    const tot = d.funds.reduce((a, x) => { a.p += x.f.budget; a.s += x.sp; return a; }, { p: 0, s: 0 });
+                    banner('LAPORAN DANAKU', `Akun: ${d.acc}   |   Dicetak: ${d.now}   |   ${d.funds.length} Danaku`);
+                    table([{ h: 'No', w: 9, a: 'center' }, { h: 'Nama Danaku', w: 44 }, { h: 'Sumber Dana', w: 40 }, { h: 'Pagu / Dana', w: 24, a: 'right' }, { h: 'Terpakai', w: 24, a: 'right' }, { h: 'Sisa', w: 24, a: 'right' }, { h: 'Status', w: 17, a: 'center' }],
+                        d.funds.map((x, i) => [i + 1, x.f.name, dkSrcLabel(x.f), x.f.budget > 0 ? formatRp(x.f.budget) : '-', formatRp(x.sp), x.f.budget > 0 ? formatRp(x.sisa) : '-', x.f.status === 'active' ? 'Aktif' : 'Selesai']),
+                        ['', 'TOTAL', '', formatRp(tot.p), formatRp(tot.s), '', '']);
+                }
+                d.funds.forEach(x => {
+                    const f = x.f;
+                    banner('RINCIAN DANAKU: ' + f.name.toUpperCase(), `Akun: ${d.acc}   |   Dicetak: ${d.now}`);
+                    kv([['Sumber Dana', dkSrcLabel(f)], [dkExt(f) ? 'Dana / Pagu' : 'Pagu', f.budget > 0 ? formatRp(f.budget) : 'Tanpa pagu'], ['Terpakai', formatRp(x.sp)], ['Sisa', f.budget > 0 ? formatRp(x.sisa) : '-'], ['Status', f.status === 'active' ? 'Aktif' : 'Selesai'], ['Catatan', f.note || '-']]);
+                    table([{ h: 'No', w: 10, a: 'center' }, { h: 'Tanggal', w: 24, a: 'center' }, { h: 'Jam', w: 20, a: 'center' }, { h: 'Keterangan', w: 62 }, { h: 'Penerima', w: 36 }, { h: 'Jumlah (Rp)', w: 30, a: 'right' }],
+                        x.exps.map((e, i) => [i + 1, dkDate(e.date), txTime(e), e.desc, e.recipient || '-', formatRp(e.amount)]),
+                        ['', '', '', 'TOTAL TERPAKAI', '', formatRp(x.sp)]);
+                });
+                const n = pdf.getNumberOfPages();
+                for (let i = 1; i <= n; i++) {
+                    pdf.setPage(i); pdf.setDrawColor(...LINE); pdf.setLineWidth(0.2); pdf.line(M, PH - 12, PW - M, PH - 12);
+                    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5); pdf.setTextColor(120, 120, 120);
+                    pdf.text('Sistem Keuangan Sektor DCC', M, PH - 8); pdf.text(`Halaman ${i} dari ${n}`, PW - M, PH - 8, { align: 'right' });
+                }
+                tbSave(pdf.output('blob'), `Danaku_${dkFile(fundId ? d.funds[0].f.name : d.acc)}_${getFormattedDate(0)}.pdf`);
+            } catch (err) { alert('Gagal membuat PDF: ' + err.message); }
         }
 
         async function deleteTransaction(id) {
