@@ -109,6 +109,7 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
+                    <button onclick="openLockSettings()" id="lockBtn" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition transform active:scale-90" title="Kunci Laman"><i id="lockIcon" class="fa-solid fa-lock text-sm"></i></button>
                     <button onclick="toggleDarkMode()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition transform active:scale-90" title="Ganti Tema">
                         <i id="themeIcon" class="fa-solid fa-moon text-sm"></i>
                     </button>
@@ -1011,6 +1012,28 @@
 
     </div>
 
+    <!-- MODAL PENGATURAN KUNCI LAMAN -->
+    <div id="lockSettingsModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-5 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-sm text-bri-blue dark:text-blue-400 flex items-center gap-1.5"><i class="fa-solid fa-lock"></i> Kunci Laman</h3>
+                <button onclick="closeModal('lockSettingsModal')" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400">Laman yang dicentang meminta PIN saat dibuka. Setelah PIN benar, semua laman terkunci terbuka sampai waktu tidak aktif habis, dan di dalamnya semua fitur bisa dipakai tanpa PIN lagi.</p>
+            <div id="lockPageList" class="grid grid-cols-2 gap-2"></div>
+            <div>
+                <label class="block font-semibold mb-1 text-gray-500">KUNCI OTOMATIS SETELAH TIDAK AKTIF</label>
+                <select id="lockMinutes" class="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl">
+                    <option value="2">2 menit</option><option value="5">5 menit</option><option value="10">10 menit</option><option value="30">30 menit</option><option value="60">1 jam</option><option value="100000">Sampai keluar / muat ulang</option>
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="lockNow()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-700 font-bold rounded-xl"><i class="fa-solid fa-lock"></i> Kunci Sekarang</button>
+                <button onclick="lockSaveSettings()" class="flex-1 py-3 bg-bri-blue text-white font-bold rounded-xl">Simpan</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL PIN KEAMANAN -->
     <style>
         @keyframes pinShake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
@@ -1021,7 +1044,7 @@
             <div class="text-center space-y-1">
                 <div class="mx-auto w-12 h-12 rounded-full bg-blue-50 dark:bg-gray-700 text-bri-blue dark:text-blue-300 flex items-center justify-center text-lg"><i class="fa-solid fa-lock"></i></div>
                 <h3 class="font-bold text-sm">Masukkan PIN</h3>
-                <p class="text-[11px] text-gray-500 dark:text-gray-400">PIN diperlukan untuk menambah, mengubah, atau menghapus data.</p>
+                <p id="pinSub" class="text-[11px] text-gray-500 dark:text-gray-400">PIN diperlukan untuk melanjutkan.</p>
             </div>
             <div id="pinDots" class="flex justify-center gap-2 py-1" aria-label="Isian PIN"></div>
             <p id="pinError" class="hidden text-center text-[11px] font-semibold text-red-500"></p>
@@ -1943,7 +1966,7 @@
                 <div class="no-print bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-3">
                     <div class="flex gap-2">
                         ${tbActionsHtml(cur)}
-                        <button onclick="pinPrint()" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 font-bold rounded-xl text-xs" title="Cetak Laporan"><i class="fa-solid fa-print"></i></button>
+                        <button onclick="window.print()" class="px-4 py-3 bg-gray-200 dark:bg-gray-700 font-bold rounded-xl text-xs" title="Cetak Laporan"><i class="fa-solid fa-print"></i></button>
                     </div>
                     <div>
                         <div class="text-[11px] font-bold text-gray-500 uppercase mb-2"><i class="fa-solid fa-download mr-1"></i> Unduh Laporan (F4)</div>
@@ -4965,7 +4988,7 @@
         // dengan SHA-256 dari teks: PIN_SALT + PINBARU  (contoh: "dcc-bendahara:12345678").
         const PIN_HASH = "7701996d0577c5675cb2e8b35df316c500010dc83bd75eb35f4353e25ebe0b9a";
         const PIN_SALT = "dcc-bendahara:";
-        const PIN_SESSION_MINUTES = 5;   // setelah PIN benar, tidak ditanya lagi selama N menit tidak aktif. Isi 0 = selalu tanya.
+        let PIN_SESSION_MINUTES = (function () { const v = parseInt(localStorage.getItem('dcc_lock_minutes'), 10); return v > 0 ? v : 10; })();   // setelah PIN benar, tidak ditanya lagi selama N menit tidak aktif. Isi 0 = selalu tanya.
         const PIN_MAX_TRIES = 5;         // salah sebanyak ini -> dikunci sementara
         const PIN_LOCK_SECONDS = 30;
 
@@ -5067,10 +5090,11 @@
         }
 
         // Mengembalikan Promise<boolean>. true = boleh lanjut.
-        function requirePin() {
+        function requirePin(label) {
             if (pinIsUnlocked()) { pinTouch(); return Promise.resolve(true); }
             if (_pinOpen) return Promise.resolve(false);   // cegah klik ganda memicu aksi dua kali
             _pinOpen = true;
+            document.getElementById('pinSub').innerText = label || 'PIN diperlukan untuk melanjutkan.';
             _pinBuf = ''; pinRenderDots();
             document.getElementById('pinError').classList.add('hidden');
             document.getElementById('pinModal').classList.remove('hidden');
@@ -5097,40 +5121,106 @@
             };
         }
 
-        function pinPrint() { window.print(); }
+        // ==========================================
+        // KUNCI LAMAN: laman terpilih meminta PIN saat dibuka
+        // ==========================================
+        // Pilihan laman & lama sesi disimpan di browser (localStorage), bisa diubah lewat tombol gembok di header.
+        const LOCK_PAGES = [['pemasukan', 'Masuk'], ['pengeluaran', 'Keluar'], ['tabungan', 'Tabungan'], ['hpp', 'HPP'], ['grafik-makro', 'Makro'],
+            ['grafik-mikro', 'Mikro'], ['aset', 'Aset'], ['stok', 'Stok'], ['tutup', 'Tutup'], ['danaku', 'Danaku'], ['laporan', 'Laporan']];
+        const LOCK_DEFAULT = ['pemasukan', 'pengeluaran', 'tabungan', 'aset', 'tutup', 'danaku'];
+        const LOCK_KEY = 'dcc_locked_pages';
+        const _navOrig = window.navigateTo;
 
-        [
-            // simpan / hapus / ubah data
-            'saveTransaction', 'deleteTransaction', 'saveEditTransaction',
-            'handleTransfer', 'deleteTransfer',
-            'saveAsset', 'deleteAsset',
-            'saveHppPlan', 'deleteHppPlan', 'realizeHppPlan',
-            'saveStokItem', 'saveStokMove', 'deleteStokMove', 'deleteStokItem',
-            'dkSaveFund', 'dkSaveExp', 'dkDelExp', 'dkToggle', 'dkDelFund',
-            'tbConfirmClose', 'reopenPeriod', 'tbDeleteClosing',
-            'handleAddAccount', 'deleteAccount', 'saveCustomOptions',
-            // pembuka form edit / tambah (supaya PIN diminta di awal, bukan setelah form terisi)
-            'editHppPlan', 'openEditTransaction', 'openStokItem', 'openStokMove', 'openCustomOptionModal',
-            'dkFundForm', 'dkExpForm', 'tbPreviewClose',
-            // akses lihat rincian & unduh/cetak laporan (Danaku dan Tutup Buku)
-            'dkDetail', 'dkExportExcel', 'dkExportPdf', 'tbExport', 'tbOpenKey', 'pinPrint'
-        ].forEach(pinGuard);
+        function lockGetPages() {
+            try { const v = JSON.parse(localStorage.getItem(LOCK_KEY)); if (Array.isArray(v)) return v.filter(x => LOCK_PAGES.some(p => p[0] === x)); } catch (e) {}
+            return LOCK_DEFAULT.slice();
+        }
+        function lockIsLocked(id) { return lockGetPages().includes(id); }
+        function lockLabel(id) { const p = LOCK_PAGES.find(x => x[0] === id); return p ? p[1] : id; }
 
-        // Modal yang dipakai khusus untuk menambah data
+        // Ikon gembok kecil di menu bawah: tertutup = perlu PIN, terbuka = sedang dibuka
+        function lockRenderBadges() {
+            const locked = lockGetPages(), open = pinIsUnlocked();
+            LOCK_PAGES.forEach(([id]) => {
+                const btn = document.getElementById('nav-' + id); if (!btn) return;
+                btn.classList.add('relative');
+                let b = btn.querySelector('.lock-badge');
+                if (!locked.includes(id)) { if (b) b.remove(); return; }
+                if (!b) { b = document.createElement('i'); b.className = 'lock-badge absolute top-0 right-1 text-[7px]'; btn.appendChild(b); }
+                b.classList.toggle('fa-lock-open', open); b.classList.toggle('fa-lock', !open);
+                b.classList.add('fa-solid'); b.style.color = open ? '#16a34a' : '#f97316';
+            });
+            const ic = document.getElementById('lockIcon');
+            if (ic) { ic.classList.toggle('fa-lock-open', open && locked.length > 0); ic.classList.toggle('fa-lock', !(open && locked.length > 0)); }
+        }
+
+        window.navigateTo = function (id) {
+            if (!lockIsLocked(id)) { const r = _navOrig.apply(this, arguments); lockRenderBadges(); return r; }
+            if (pinIsUnlocked()) { pinTouch(); const r = _navOrig.apply(this, arguments); lockRenderBadges(); return r; }
+            const self = this, args = arguments;
+            return requirePin('Laman ' + lockLabel(id) + ' terkunci. Masukkan PIN untuk membuka.').then(ok => {
+                if (ok) { _navOrig.apply(self, args); lockRenderBadges(); }
+            });
+        };
+
+        function lockNow() {
+            _pinUntil = 0;
+            if (typeof currentPage !== 'undefined' && lockIsLocked(currentPage)) _navOrig('beranda');
+            closeModal('lockSettingsModal'); lockRenderBadges();
+        }
+
+        function openLockSettings() {
+            requirePin('Masukkan PIN untuk mengatur kunci laman.').then(ok => {
+                if (!ok) return;
+                const cur = lockGetPages();
+                document.getElementById('lockPageList').innerHTML = LOCK_PAGES.map(([id, name]) =>
+                    '<label class="flex items-center gap-2 p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer font-semibold"><input type="checkbox" class="lock-chk" value="' + id + '"' + (cur.includes(id) ? ' checked' : '') + '> ' + name + '</label>').join('');
+                const m = document.getElementById('lockMinutes');
+                m.value = String(PIN_SESSION_MINUTES); if (m.value !== String(PIN_SESSION_MINUTES)) m.value = '10';
+                openModal('lockSettingsModal');
+            });
+        }
+
+        function lockSaveSettings() {
+            const chosen = Array.from(document.querySelectorAll('#lockPageList .lock-chk:checked')).map(c => c.value);
+            const mins = parseInt(document.getElementById('lockMinutes').value, 10) || 10;
+            try { localStorage.setItem(LOCK_KEY, JSON.stringify(chosen)); localStorage.setItem('dcc_lock_minutes', String(mins)); } catch (e) {}
+            PIN_SESSION_MINUTES = mins; pinTouch();
+            closeModal('lockSettingsModal'); lockRenderBadges();
+        }
+
+        // Aktivitas pengguna memperpanjang sesi; bila habis saat berada di laman terkunci -> kembali ke Beranda
+        ['click', 'keydown', 'touchstart', 'input'].forEach(evn => document.addEventListener(evn, () => { if (pinIsUnlocked()) pinTouch(); }, true));
+        setInterval(() => {
+            if (!pinIsUnlocked() && !_pinOpen && typeof currentPage !== 'undefined' && lockIsLocked(currentPage)) _navOrig('beranda');
+            lockRenderBadges();
+        }, 15000);
+
+        // Bungkus fungsi: jalankan aslinya hanya setelah PIN benar (khusus aksi berbahaya di luar laman)
+        function pinGuard(name, label) {
+            const orig = window[name];
+            if (typeof orig !== 'function') { console.warn('[PIN] fungsi tidak ditemukan:', name); return; }
+            window[name] = function (...args) {
+                const ev = args[0];
+                if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+                if (pinIsUnlocked()) { pinTouch(); return orig.apply(this, args); }
+                return requirePin(label).then(ok => ok ? orig.apply(this, args) : undefined);
+            };
+        }
+        pinGuard('deleteAccount', 'PIN diperlukan untuk menghapus akun beserta seluruh datanya.');
+
+        // Logout = kunci kembali + kembali ke Beranda
         (function () {
-            const guardedModals = ['addAccountModal', 'addAssetModal', 'transferModal'];
-            const origOpenModal = window.openModal;
-            window.openModal = function (id) {
-                if (!guardedModals.includes(id) || pinIsUnlocked()) { if (guardedModals.includes(id)) pinTouch(); return origOpenModal(id); }
-                return requirePin().then(ok => ok ? origOpenModal(id) : undefined);
+            const origLogout = window.handleLogout;
+            window.handleLogout = function () {
+                _pinUntil = 0;
+                if (typeof currentPage !== 'undefined' && lockIsLocked(currentPage)) _navOrig('beranda');
+                lockRenderBadges();
+                return origLogout.apply(this, arguments);
             };
         })();
 
-        // Logout = kunci kembali
-        (function () {
-            const origLogout = window.handleLogout;
-            window.handleLogout = function () { _pinUntil = 0; return origLogout.apply(this, arguments); };
-        })();
+        lockRenderBadges();
     </script>
 </body>
 </html>
