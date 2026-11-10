@@ -1260,7 +1260,7 @@
                     _supabase.from('period_closings').select('*').order('id', { ascending: true })
                 ]);
                 state.schemaMissing = optR.some(r => r.error);
-                state.inventoryItems = optR[0].error ? [] : (optR[0].data || []).map(i => ({ id: i.id, account: i.account, name: i.name, unit: i.unit || 'pcs', sellPrice: Number(i.sell_price || 0), editor: i.editor || '' }));
+                state.inventoryItems = optR[0].error ? [] : (optR[0].data || []).map(i => ({ id: i.id, account: i.account, name: i.name, unit: i.unit || 'pcs', sellPrice: Number(i.sell_price || 0), editor: i.editor || '', planId: i.plan_id || null }));
                 state.inventoryMoves = optR[1].error ? [] : (optR[1].data || []).map(mapMove);
                 state.closings = optR[2].error ? [] : (optR[2].data || []).map(c => {
                     let sn = c.snapshot; if (typeof sn === 'string') { try { sn = JSON.parse(sn); } catch (e) { sn = {}; } }
@@ -1400,10 +1400,11 @@
         }
 
         // Rata-rata bergerak: kembalikan stok & HPP per barang serta buku besar persediaan
-        function invWalk(acc, excludeId) {
+        function invWalk(acc, excludeId, extraMoves) {
             const items = {};
             state.inventoryItems.filter(i => i.account === acc).forEach(i => { items[i.id] = { qty: 0, avg: 0 }; });
-            const moves = state.inventoryMoves.filter(m => m.account === acc && m.id !== excludeId)
+            const _ex = excludeId instanceof Set ? excludeId : new Set(excludeId == null ? [] : [excludeId]);
+            const moves = state.inventoryMoves.filter(m => m.account === acc && !_ex.has(m.id)).concat(extraMoves || [])
                 .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id);
             const ledger = [];
             const sum = () => Object.values(items).reduce((t, x) => t + x.qty * x.avg, 0);
@@ -1511,7 +1512,7 @@
             const { data, error } = r;
             if (error || !data || !data.length) throw new Error(error ? error.message : 'database tidak merespons');
             const i = data[0];
-            const it = { id: i.id, account: i.account, name: i.name, unit: i.unit || 'pcs', sellPrice: Number(i.sell_price || 0), editor: i.editor || (r.missing.length ? '' : (row.editor || '')) };
+            const it = { id: i.id, account: i.account, name: i.name, unit: i.unit || 'pcs', sellPrice: Number(i.sell_price || 0), editor: i.editor || (r.missing.length ? '' : (row.editor || '')), planId: i.plan_id || row.plan_id || null };
             state.inventoryItems.push(it);
             if (r.missing.length) warnMissingCols(r.missing);
             return it;
@@ -1640,6 +1641,104 @@
             renderStokPage();
         }
 
+
+        // ==========================================================
+        // SINKRONISASI HPP <-> PENGELUARAN <-> STOK
+        // Kartu HPP yang sudah direalisasikan terhubung ke: 1 transaksi pengeluaran (Belanja Stok) + pergerakan stok masuk.
+        // Tautan memakai tag [HPP#id] pada catatan pergerakan stok (tanpa perlu migrasi database);
+        // realisasi lama (tanpa tag) dikenali dari teks catatan + transaksi yang cocok.
+        // ==========================================================
+        const HPP_TAG = id => '[HPP#' + id + ']';
+        function hppMoves(plan) {
+            const tag = HPP_TAG(plan.id);
+            let mv = state.inventoryMoves.filter(m => m.account === plan.account && m.note && m.note.indexOf(tag) >= 0);
+            if (!mv.length && plan.realizedAt) {
+                const txIds = new Set(state.transactions.filter(t => t.account === plan.account && t.desc === 'Belanja stok (HPP): ' + plan.desc).map(t => t.id));
+                mv = state.inventoryMoves.filter(m => m.account === plan.account && m.type === 'in' && m.note === 'Dari rancangan HPP: ' + plan.desc && m.transactionId && txIds.has(m.transactionId));
+            }
+            if (new Set(mv.map(m => m.transactionId)).size > 1) mv._ambiguous = true;
+            return mv;
+        }
+        function hppFindInv(acc, it) {
+            const nm = String(it.name || '').trim().toLowerCase();
+            return (it.invId && state.inventoryItems.find(x => x.account === acc && x.id === it.invId)) || state.inventoryItems.find(x => x.account === acc && x.name.toLowerCase() === nm) || null;
+        }
+        function moveToRow(m) { return { account: m.account, item_id: m.itemId, date: m.date, type: m.type, qty: m.qty, unit_cost: m.unitCost, unit_price: m.unitPrice, note: m.note, transaction_id: m.transactionId }; }
+
+        // Validasi sebelum rancangan yang sudah direalisasikan diubah; kembalikan paket sinkron atau null (dibatalkan)
+        function hppSyncCheck(plan, nd) {
+            const acc = plan.account, oldMoves = hppMoves(plan);
+            if (oldMoves._ambiguous) { alert('Data stok dari rancangan ini tidak bisa dipastikan (ada beberapa rancangan dengan nama sama). Ubah nama rancangan lama terlebih dahulu atau ubah data stok/pengeluaran secara manual.'); return null; }
+            const tx = oldMoves.length ? state.transactions.find(t => t.id === oldMoves[0].transactionId) : null;
+            if (!oldMoves.length || !tx) {
+                return confirm('Data pengeluaran/stok hasil realisasi rancangan ini tidak ditemukan, jadi tidak bisa ikut diperbarui.\n\nSimpan perubahan rancangan saja?') ? { skip: true } : null;
+            }
+            if (guardClosed(tx.date) || oldMoves.some(m => guardClosed(m.date))) return null;
+            if (!getCurrentAccountOptions().out.cashTypes.includes(nd.cashSource)) { alert('Kas asal "' + nd.cashSource + '" tidak ada di daftar kas pengeluaran.'); return null; }
+            const m = hppCompute(nd.items, nd.operationalCost), date = oldMoves[0].date, virt = [], aff = new Set(oldMoves.map(x => x.itemId)), seen = new Set();
+            for (let i = 0; i < nd.items.length; i++) {
+                const it = nd.items[i], nm = String(it.name || '').trim().toLowerCase();
+                if (!nm) { alert('Nama barang pada baris ' + (i + 1) + ' wajib diisi.'); return null; }
+                if (seen.has(nm)) { alert('Nama barang "' + it.name + '" ganda di dalam rancangan.'); return null; }
+                seen.add(nm);
+                const inv = hppFindInv(acc, it);
+                if (inv && state.inventoryItems.some(x => x.account === acc && x.id !== inv.id && x.name.toLowerCase() === nm)) { alert('Nama barang "' + it.name + '" sudah dipakai barang lain di stok.'); return null; }
+                if (inv) aff.add(inv.id);
+                virt.push({ id: 1e12 + i, account: acc, itemId: inv ? inv.id : -(i + 1), date, type: 'in', qty: it.qty, unitCost: m.rows[i].sellPrice - m.rows[i].profit, unitPrice: 0, note: '', transactionId: tx.id });
+            }
+            const w = invWalk(acc, new Set(oldMoves.map(x => x.id)), virt);
+            if (w.ledger.some(l => l.negative && aff.has(l.m.itemId))) { alert('Perubahan tidak bisa disimpan: stok barang dari rancangan ini akan menjadi minus karena sebagian sudah terjual/disesuaikan. Kurangi perubahan jumlahnya atau lakukan penyesuaian stok terlebih dahulu.'); return null; }
+            return { plan, nd, oldMoves, tx, m, date };
+        }
+
+        // Terapkan perubahan kartu HPP ke Pengeluaran (transaksi) dan Stok (barang + pergerakan)
+        async function hppSyncApply(sy) {
+            const { plan, nd, oldMoves, tx, m, date } = sy, acc = plan.account, tag = HPP_TAG(plan.id);
+            const touched = new Set(oldMoves.map(x => x.itemId)), rows = [];
+            for (let i = 0; i < nd.items.length; i++) {
+                const it = nd.items[i], r = m.rows[i], name = String(it.name).trim(), price = Math.round(r.hasStore ? r.storePrice : r.sellPrice);
+                let inv = hppFindInv(acc, it);
+                if (!inv) inv = await insItem({ account: acc, name, unit: 'pcs', sell_price: price, plan_id: plan.id });
+                else if (inv.planId === plan.id && (inv.name !== name || inv.sellPrice !== price)) {
+                    const u = await _supabase.from('inventory_items').update({ name, sell_price: price }).eq('id', inv.id);
+                    if (u.error) throw new Error(u.error.message);
+                    inv.name = name; inv.sellPrice = price;
+                }
+                it.invId = inv.id; touched.add(inv.id);
+                rows.push({ account: acc, item_id: inv.id, date, type: 'in', qty: it.qty, unit_cost: r.sellPrice - r.profit, unit_price: 0, note: 'Dari rancangan HPP: ' + nd.desc + ' ' + tag, transaction_id: tx.id });
+            }
+            // Pengeluaran
+            const oldTx = { description: tx.desc, amount: tx.amount, cash_type: tx.cashType, recipient: tx.recipient || null };
+            const upd = { description: 'Belanja stok (HPP): ' + nd.desc, amount: m.totalBiaya, cash_type: nd.cashSource };
+            if (nd.designer) upd.recipient = nd.designer;
+            const ut = await _supabase.from('transactions').update(upd).eq('id', tx.id);
+            if (ut.error) throw new Error(ut.error.message);
+            const setTx = (d, a, c, rcp) => { tx.desc = d; tx.amount = Number(a); tx.cashType = c; if (rcp !== undefined) tx.recipient = rcp || ''; };
+            setTx(upd.description, upd.amount, upd.cash_type, upd.recipient);
+            const restoreTx = async () => { await _supabase.from('transactions').update(oldTx).eq('id', tx.id); setTx(oldTx.description, oldTx.amount, oldTx.cash_type, oldTx.recipient); };
+            // Stok: ganti pergerakan lama dengan yang baru
+            const oldIds = oldMoves.map(x => x.id);
+            const dm = await _supabase.from('inventory_moves').delete().in('id', oldIds);
+            if (dm.error) { await restoreTx(); throw new Error(dm.error.message); }
+            state.inventoryMoves = state.inventoryMoves.filter(x => !oldIds.includes(x.id));
+            try { await insMoves(rows); }
+            catch (err) {
+                try { await insMoves(oldMoves.map(moveToRow)); } catch (e2) {}
+                await restoreTx(); throw err;
+            }
+            // Barang buatan rancangan ini yang tidak punya riwayat stok lagi ikut dihapus
+            const left = new Set(state.inventoryMoves.map(x => x.itemId));
+            for (const id of touched) {
+                const inv = state.inventoryItems.find(x => x.id === id);
+                if (inv && inv.planId === plan.id && !left.has(id)) {
+                    const di = await _supabase.from('inventory_items').delete().eq('id', id);
+                    if (!di.error) state.inventoryItems = state.inventoryItems.filter(x => x.id !== id);
+                }
+            }
+            await _supabase.from('hpp_plans').update({ items: nd.items }).eq('id', plan.id);
+            plan.items = nd.items;
+        }
+
         // HPP -> Stok: catat pembelian (pengeluaran) & masukkan barang ke persediaan dengan HPP per satuan
         async function realizeHppPlan(id) {
             if (needSchema()) return;
@@ -1669,13 +1768,14 @@
                     const it = plan.items[i], r = m.rows[i];
                     let inv = state.inventoryItems.find(x => x.account === acc && x.name.toLowerCase() === String(it.name).trim().toLowerCase());
                     if (!inv) inv = await insItem({ account: acc, name: String(it.name).trim(), unit: 'pcs', sell_price: Math.round(r.hasStore ? r.storePrice : r.sellPrice), plan_id: plan.id });
-                    moves.push({ account: acc, item_id: inv.id, date, type: 'in', qty: it.qty, unit_cost: r.sellPrice - r.profit, unit_price: 0, note: 'Dari rancangan HPP: ' + plan.desc });
+                    it.invId = inv.id;
+                    moves.push({ account: acc, item_id: inv.id, date, type: 'in', qty: it.qty, unit_cost: r.sellPrice - r.profit, unit_price: 0, note: 'Dari rancangan HPP: ' + plan.desc + ' ' + HPP_TAG(plan.id) });
                 }
                 txId = await insTx({ account: acc, type: 'out', date, description: 'Belanja stok (HPP): ' + plan.desc, qty: 1, category: 'Belanja Stok', cash_type: cash, amount: m.totalBiaya, recipient: who });
                 moves.forEach(x => x.transaction_id = txId);
                 try { await insMoves(moves); } catch (err) { await delTxById(txId).catch(() => {}); throw err; }
             } catch (err) { alert('Gagal merealisasikan rancangan: ' + err.message + (/recipient/.test(err.message) ? '\n\nJalankan migrasi_danaku_penerima.sql di Supabase terlebih dahulu.' : '')); return; }
-            const { error } = await _supabase.from('hpp_plans').update({ realized_at: new Date().toISOString() }).eq('id', id);
+            const { error } = await _supabase.from('hpp_plans').update({ realized_at: new Date().toISOString(), items: plan.items }).eq('id', id);
             if (error) alert('Stok sudah tercatat, tetapi gagal menandai rancangan: ' + error.message);
             else plan.realizedAt = new Date().toISOString();
             refreshCurrentPage();
@@ -3027,7 +3127,7 @@
         function editHppPlan(id) {
             const plan = state.hppPlans.find(h => h.id === id);
             if (!plan) return;
-            if (plan.realizedAt && !confirm('Rancangan ini sudah direalisasikan ke stok. Perubahan di sini TIDAK mengubah stok & pengeluaran kas yang sudah tercatat. Tetap edit?')) return;
+            if (plan.realizedAt && !confirm('Rancangan ini sudah direalisasikan ke stok. Perubahan yang disimpan akan ikut mengubah data Pengeluaran (belanja stok) dan Stok yang sudah tercatat. Lanjutkan edit?')) return;
             editingHppId = id;
             document.getElementById('hppFormDesc').value = plan.desc || '';
             document.getElementById('hppFormDesigner').value = plan.designer || '';
@@ -3035,6 +3135,7 @@
             document.getElementById('hppOperationalCost').value = Number(plan.operationalCost || 0);
             document.getElementById('hppFormNote').value = plan.note || '';
             hppDraftItems = JSON.parse(JSON.stringify(plan.items || []));
+            if (plan.realizedAt) hppDraftItems.forEach(it => { if (!it.invId) { const inv = hppFindInv(plan.account, it); if (inv) it.invId = inv.id; } });
             if (hppDraftItems.length === 0) hppDraftItems.push({ name: '', qty: 1, cost: 0, profitPercent: 10, storePrice: 0 });
             fillHppCashSelect(plan.cashSource || '');
             setHppEditMode(plan);
@@ -3086,6 +3187,15 @@
             const payload = { description: desc, date: date, operational_cost: operationalCost, note: note, items: items };
             const isEdit = editingHppId !== null;
             if (!isEdit) payload.account = state.currentAccount;
+            let sync = null;
+            if (isEdit) {
+                const cur = state.hppPlans.find(h => h.id === editingHppId);
+                if (cur && cur.realizedAt) {
+                    if (items.some(it => !String(it.name || '').trim())) { alert('Nama barang wajib diisi pada semua baris.'); return; }
+                    sync = hppSyncCheck(cur, { desc, date, operationalCost, note, items, cashSource, designer });
+                    if (!sync) return;
+                }
+            }
 
             const r = await hppPersist(payload, cashSource, isEdit ? editingHppId : null, designer);
 
@@ -3106,6 +3216,10 @@
                 });
             }
 
+            if (sync && !sync.skip) {
+                try { await hppSyncApply(sync); }
+                catch (err) { alert('Rancangan tersimpan, tetapi pengeluaran/stok gagal ikut diperbarui: ' + err.message + '\n\nBuka Edit lalu Simpan lagi untuk mengulang sinkronisasi.'); }
+            }
             if (r.noCol) {
                 alert("Rancangan tersimpan, tetapi kolom 'cash_source' belum ada di tabel hpp_plans sehingga kas asal belum tersimpan permanen.\n\nJalankan SQL ini di Supabase:\nalter table hpp_plans add column if not exists cash_source text;");
             }
@@ -3117,6 +3231,34 @@
         }
 
         async function deleteHppPlan(id) {
+            const plan = state.hppPlans.find(h => h.id === id); if (!plan) return;
+            if (plan.realizedAt) {
+                const oldMoves = hppMoves(plan);
+                if (oldMoves._ambiguous) { alert('Data stok dari rancangan ini tidak bisa dipastikan (ada beberapa rancangan dengan nama sama). Ubah nama rancangan lama terlebih dahulu.'); return; }
+                const tx = oldMoves.length ? state.transactions.find(t => t.id === oldMoves[0].transactionId) : null;
+                if (oldMoves.length) {
+                    if ((tx && guardClosed(tx.date)) || oldMoves.some(m => guardClosed(m.date))) return;
+                    const aff = new Set(oldMoves.map(x => x.itemId));
+                    const w = invWalk(plan.account, new Set(oldMoves.map(x => x.id)));
+                    if (w.ledger.some(l => l.negative && aff.has(l.m.itemId))) { alert('Tidak bisa dihapus: sebagian barang dari rancangan ini sudah terjual/disesuaikan sehingga stok akan menjadi minus. Batalkan transaksi terkait terlebih dahulu.'); return; }
+                    if (!confirm('Rancangan ini sudah direalisasikan.\nMenghapusnya juga akan menghapus' + (tx ? ' pengeluaran ' + formatRp(tx.qty * tx.amount) + ' (Belanja Stok)' : ' pengeluaran terkait') + ' dan ' + oldMoves.length + ' pergerakan stok masuk (barang yang dibuat dari rancangan ini ikut dihapus).\n\nLanjutkan?')) return;
+                    try {
+                        const ids = oldMoves.map(x => x.id);
+                        const dm = await _supabase.from('inventory_moves').delete().in('id', ids);
+                        if (dm.error) throw new Error(dm.error.message);
+                        state.inventoryMoves = state.inventoryMoves.filter(x => !ids.includes(x.id));
+                        if (tx) await delTxById(tx.id);
+                        const left = new Set(state.inventoryMoves.map(x => x.itemId));
+                        for (const iid of aff) {
+                            const inv = state.inventoryItems.find(x => x.id === iid);
+                            if (inv && inv.planId === plan.id && !left.has(iid)) {
+                                const di = await _supabase.from('inventory_items').delete().eq('id', iid);
+                                if (!di.error) state.inventoryItems = state.inventoryItems.filter(x => x.id !== iid);
+                            }
+                        }
+                    } catch (err) { alert('Gagal menghapus pengeluaran/stok terkait: ' + err.message + '\nRancangan belum dihapus.'); refreshCurrentPage(); return; }
+                } else if (!confirm('Rancangan ini sudah direalisasikan, tetapi data pengeluaran/stok hasilnya tidak ditemukan sehingga tidak ikut dihapus.\n\nHapus rancangan saja?')) return;
+            }
             if (_supabase) {
                 const { error } = await _supabase.from('hpp_plans').delete().eq('id', id);
                 if (error) {
@@ -3125,7 +3267,7 @@
                 }
             }
             state.hppPlans = state.hppPlans.filter(h => h.id !== id);
-            renderHppPage();
+            refreshCurrentPage();
         }
 
         function renderHppPage() {
@@ -4020,7 +4162,7 @@
                 <div><label ${DK_LB}>Tanggal</label><input type="date" id="dkDate" value="${e ? e.date : getFormattedDate(0)}" ${DK_IN}></div>
                 <div><label ${DK_LB}>Keterangan</label><input id="dkDesc" value="${esc(e ? e.desc : '')}" placeholder="Misal: Konsumsi rapat" ${DK_IN}></div>
                 <div><label ${DK_LB}>Jumlah (Rp)</label><input type="number" id="dkAmt" min="1" value="${e ? e.amount : ''}" placeholder="0" ${DK_IN}></div>
-                <div><label ${DK_LB}>Nama penerima (opsional)</label><input id="dkRec" value="${esc(e ? e.recipient : '')}" ${DK_IN}></div></div>
+                <div><label ${DK_LB}>Nama penerima <span class="text-red-500">*</span></label><input id="dkRec" required placeholder="Wajib diisi" value="${esc(e ? e.recipient : '')}" ${DK_IN}></div></div>
                 <button onclick="dkSaveExp(${f.id}, ${e ? e.id : 0})" class="w-full py-3 bg-bri-orange text-white font-bold rounded-xl">${e ? 'Simpan Perubahan' : (dkExt(f) ? 'Simpan Pengeluaran' : 'Simpan &amp; Catat ke Pengeluaran')}</button>`);
         }
         async function dkSaveExp(fundId, expId) {
@@ -4028,6 +4170,7 @@
             const e = expId ? state.danakuExpenses.find(x => x.id === expId) : null;
             const date = dkV('dkDate'), desc = dkV('dkDesc').trim(), amount = parseFloat(dkV('dkAmt')), recipient = dkV('dkRec').trim();
             if (!date || !desc || !(amount > 0)) { alert('Tanggal, keterangan, dan jumlah wajib diisi.'); return; }
+            if (!recipient) { alert('Nama penerima wajib diisi.'); const _r = document.getElementById('dkRec'); if (_r) _r.focus(); return; }
             if (guardClosed(date) || (e && guardClosed(e.date))) return;
             if (!initSupabaseClient()) { alert('Koneksi database belum siap!'); return; }
             const ext = dkExt(f), sp = dkSpent(f.id) - (e ? e.amount : 0), saldo = ext ? 0 : dkKasSaldo(f.account, f.sourceCash) + (e ? e.amount : 0);
